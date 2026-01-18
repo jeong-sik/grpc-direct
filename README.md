@@ -52,7 +52,7 @@ let () = Eio_main.run @@ fun env ->
 - ✅ **gRPC-Web** (HTTP/1.1 binary/text; WebSocket gateway for streaming/bidi)
 - ✅ OCaml 5.x effects (no Lwt/Async)
 
-### Production (v1.0)
+### Production (v0.1.0)
 - ✅ **Health Check** - `grpc.health.v1.Health` service
 - ✅ **Retry Policy** - Exponential backoff with jitter
 - ✅ **Metrics** - Prometheus-compatible metrics
