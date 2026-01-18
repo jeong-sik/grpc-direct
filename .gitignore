@@ -30,3 +30,11 @@ Thumbs.db
 # Test artifacts
 *.log
 *.coverage
+
+# Go binaries (bench)
+bench/go-comparison/server
+bench/go-comparison/go-echo-server
+bench/go-comparison/*.exe
+
+# Rust build artifacts (bench)
+bench/rust-comparison/target/
