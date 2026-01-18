@@ -1,0 +1,11 @@
+(executable
+ (name embedding_server)
+ (package grpc-direct)
+ (public_name embedding-server)
+ (libraries grpc-direct eio eio_main unix))
+
+(executable
+ (name embedding_client)
+ (package grpc-direct)
+ (public_name embedding-client)
+ (libraries grpc-direct grpc-direct-core eio eio_main))

@@ -1,0 +1,5 @@
+(executable
+ (name protoc_gen_grpc_direct)
+ (public_name protoc-gen-grpc-direct)
+ (package grpc-direct-protoc)
+ (libraries grpc_protoc ocaml-protoc-plugin ocaml-protoc-plugin.google_types))

@@ -1,0 +1,32 @@
+# OCaml build artifacts
+_build/
+*.install
+*.merlin
+.merlin
+
+# Dune
+_opam/
+
+# Benchmark binaries (large files)
+ghz
+ghz-web
+ghz.tar.gz
+*.tar.gz
+
+# Editor
+.vscode/
+*.swp
+*~
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated protobuf
+*_pb.ml
+*_pb.mli
+
+# Test artifacts
+*.log
+*.coverage

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package interop;
+
+option go_package = "./;main";
+
+service InteropService {
+  rpc Unary(Payload) returns (Payload) {}
+  rpc ServerStream(Payload) returns (stream Payload) {}
+  rpc ClientStream(stream Payload) returns (Payload) {}
+  rpc BidiStream(stream Payload) returns (stream Payload) {}
+}
+
+message Payload {
+  string message = 1;
+}

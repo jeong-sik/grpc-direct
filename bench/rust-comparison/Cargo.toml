@@ -1,0 +1,22 @@
+[package]
+name = "echo-server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "echo-server"
+path = "src/main.rs"
+
+[dependencies]
+tonic = { version = "0.13", features = ["tls-ring", "gzip"] }
+prost = "0.13"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+[build-dependencies]
+tonic-build = "0.13"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

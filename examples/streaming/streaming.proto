@@ -1,0 +1,25 @@
+// Example proto file for streaming example
+// This is for reference - actual encoding uses simple format
+
+syntax = "proto3";
+
+package streaming;
+
+service Echo {
+  // Unary: single request, single response
+  rpc Echo (Message) returns (Message);
+
+  // Server Streaming: single request, stream of responses
+  rpc EchoExpand (Message) returns (stream Message);
+
+  // Client Streaming: stream of requests, single response
+  rpc EchoCollect (stream Message) returns (Message);
+
+  // Bidirectional: stream of requests, stream of responses
+  rpc EchoBidi (stream Message) returns (stream Message);
+}
+
+message Message {
+  int32 seq = 1;
+  string content = 2;
+}

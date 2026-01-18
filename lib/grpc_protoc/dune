@@ -1,0 +1,4 @@
+(library
+ (name grpc_protoc)
+ (public_name grpc-direct-protoc.lib)
+ (libraries str))

@@ -1,0 +1,6 @@
+// Service definition for protoc-gen-grpc-eio
+// Use: protoc-gen-grpc-eio < greeter.service > greeter_grpc.ml
+
+package: helloworld
+service: Greeter
+rpc SayHello(HelloRequest) returns (HelloReply)
