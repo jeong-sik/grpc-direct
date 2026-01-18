@@ -1,0 +1,48 @@
+(library
+ (name h2_lite)
+ (public_name grpc-direct.h2_lite)
+ (libraries cstruct eio)
+(modules buffer_pool frame hpack stream flow_control priority_scheduler connection grpc_message h2_lite)
+ (ocamlopt_flags (:standard -O3)))
+
+(executable
+ (name echo_server)
+ (modules echo_server)
+ (libraries h2_lite eio_main)
+ (ocamlopt_flags (:standard -O3)))
+
+(executable
+ (name echo_server_multi)
+ (modules echo_server_multi)
+ (libraries h2_lite eio_main))
+
+(executable
+ (name echo_server_turbo)
+ (modules echo_server_turbo)
+ (libraries h2_lite eio_main)
+ (ocamlopt_flags (:standard -O3)))
+
+(executable
+ (name test_continuation)
+ (modules test_continuation)
+ (libraries h2_lite))
+
+(executable
+ (name test_huffman)
+ (modules test_huffman)
+ (libraries h2_lite))
+
+(executable
+ (name bench_optimized)
+ (modules bench_optimized)
+ (libraries h2_lite unix))
+
+; TODO: Update test and bench to new API
+; (executable
+;  (name test_h2_lite)
+;  (modules test_h2_lite)
+;  (libraries h2_lite))
+; (executable
+;  (name bench_h2_lite)
+;  (modules bench_h2_lite)
+;  (libraries h2_lite unix))

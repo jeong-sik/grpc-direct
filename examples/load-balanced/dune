@@ -1,0 +1,11 @@
+(executable
+ (name echo_server)
+ (public_name grpc-direct-load-balanced-server)
+ (package grpc-direct)
+ (libraries grpc-direct eio_main))
+
+(executable
+ (name lb_client)
+ (public_name grpc-direct-load-balanced-client)
+ (package grpc-direct)
+ (libraries grpc-direct eio_main))

@@ -1,0 +1,39 @@
+(test
+ (name test_codec)
+ (libraries grpc_core))
+
+(test
+ (name test_timeout)
+ (libraries grpc_core))
+
+(test
+ (name test_streaming)
+ (libraries grpc_core))
+
+(test
+ (name test_status)
+ (libraries grpc_core))
+
+(test
+ (name test_codegen)
+ (libraries grpc_protoc str))
+
+(test
+ (name test_tls)
+ (libraries grpc_eio tls mirage-crypto-rng-eio))
+
+(test
+ (name test_grpc_web)
+ (libraries grpc_eio grpc_core))
+
+;; Test server for debugging :status header issue
+(executable
+ (name test_server)
+ (modules test_server)
+ (libraries grpc_eio grpc_core eio eio_main))
+
+;; Debug server with direct h2 usage
+(executable
+ (name test_server_debug)
+ (modules test_server_debug)
+ (libraries h2 h2-eio eio eio_main bigstringaf))

@@ -1,0 +1,4 @@
+(library
+ (name grpc_core)
+ (public_name grpc-direct-core)
+ (libraries decompress.de decompress.gz bigstringaf unix zstd))

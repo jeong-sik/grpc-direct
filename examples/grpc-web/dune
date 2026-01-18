@@ -1,0 +1,7 @@
+(executable
+ (name grpc_web_server)
+ (libraries grpc_eio grpc_core eio_main))
+
+(executable
+ (name grpc_web_client)
+ (libraries grpc_eio grpc_core eio_main))

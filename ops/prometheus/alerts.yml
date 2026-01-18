@@ -1,0 +1,34 @@
+groups:
+  - name: grpc_eio
+    rules:
+      - alert: GrpcHighErrorRate
+        expr: |
+          (sum(rate(grpc_server_calls_failed_total[5m]))
+           / sum(rate(grpc_server_calls_total[5m]))) > 0.01
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "gRPC error rate > 1%"
+          description: "Error ratio exceeded 1% over 5m."
+
+      - alert: GrpcHighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(grpc_server_call_duration_seconds_bucket[5m]))
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "gRPC p95 latency > 500ms"
+          description: "p95 latency above 500ms over 10m."
+
+      - alert: GrpcNoTraffic
+        expr: sum(rate(grpc_server_calls_total[5m])) == 0
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "gRPC traffic halted"
+          description: "No calls observed in the last 10m."

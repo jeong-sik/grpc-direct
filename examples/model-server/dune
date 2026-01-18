@@ -1,0 +1,11 @@
+(executable
+ (name inference_server)
+ (package grpc-direct)
+ (public_name model-inference-server)
+ (libraries grpc-direct eio eio_main unix))
+
+(executable
+ (name inference_client)
+ (package grpc-direct)
+ (public_name model-inference-client)
+ (libraries grpc-direct grpc-direct-core eio eio_main unix))
