@@ -1,4 +1,4 @@
-# grpc-eio-next
+# grpc-direct
 
 **Production-focused gRPC for OCaml 5.x** - zero Lwt, zero Async, pure effects.
 
@@ -12,13 +12,13 @@ OCaml 5's native effect system via Eio for lightweight, direct-style concurrency
 ## Installation
 
 ```bash
-opam install grpc-eio
+opam install grpc-direct
 ```
 
 Or add to your dune-project:
 ```lisp
 (depends
-  (grpc-eio (>= 1.0.0)))
+  (grpc-direct (>= 0.1.0)))
 ```
 
 ## Quick Start
