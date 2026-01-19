@@ -29,6 +29,15 @@
 
 open Eio.Std
 
+(** Optional debug logging (enable with GRPC_EIO_LITE_DEBUG=1). *)
+let debug_enabled = Option.is_some (Sys.getenv_opt "GRPC_EIO_LITE_DEBUG")
+
+let debug fmt =
+  if debug_enabled then
+    traceln fmt
+  else
+    Format.ifprintf Format.err_formatter fmt
+
 (** H2_lite modules for HTTP/2 handling *)
 module Connection = H2_lite.Connection
 module Frame = H2_lite.Frame
@@ -114,6 +123,7 @@ type stream_entry = {
 
 (** Handle a single connection *)
 let handle_connection server flow =
+  debug "Server_lite: accepted connection";
   let conn = Connection.create flow in
   let hpack_decoder = Hpack.create () in
   let hpack_encoder = Hpack.create () in
@@ -154,6 +164,7 @@ let handle_connection server flow =
         ~max_frame_size:(Connection.peer_max_frame_size conn) encoded_trailers
     in
 
+    debug "Server_lite: send error stream=%ld code=%d" stream_id code;
     Connection.write_frames conn (header_frames @ trailer_frames);
     Hashtbl.remove streams stream_id;
     Flow_control.remove_stream flow_control stream_id
@@ -179,6 +190,7 @@ let handle_connection server flow =
     let data_len = Cstruct.length encoded_body in
     if Flow_control.can_send flow_control stream_id data_len then begin
       Flow_control.consume flow_control stream_id data_len;
+      debug "Server_lite: send response stream=%ld bytes=%d" stream_id data_len;
       Connection.write_frames conn (header_frames @ [data_frame] @ trailer_frames);
       Hashtbl.remove streams stream_id;
       Flow_control.remove_stream flow_control stream_id
@@ -187,6 +199,7 @@ let handle_connection server flow =
   in
 
   let process_request stream_id entry =
+    debug "Server_lite: process_request stream=%ld path=%s" stream_id entry.path;
     match lookup_method server entry.path with
     | None ->
         (* Service/method not found - send UNIMPLEMENTED (code 12) *)
@@ -214,6 +227,7 @@ let handle_connection server flow =
   try
     (* HTTP/2 connection preface exchange *)
     Connection.server_handshake conn;
+    debug "Server_lite: handshake complete";
     Flow_control.update_initial_window_size flow_control conn.Connection.peer_settings.initial_window_size;
     Flow_control.update_recv_initial_window_size flow_control conn.Connection.local_settings.initial_window_size;
     Hpack.set_max_size hpack_encoder conn.Connection.peer_settings.header_table_size;
@@ -226,6 +240,7 @@ let handle_connection server flow =
       match frame.Frame.header.frame_type with
       | Frame.Headers ->
           let info = Connection.read_header_block ~first_frame:frame conn in
+          debug "Server_lite: headers stream=%ld end_stream=%b" info.stream_id info.end_stream;
           let entry = get_or_create_stream info.stream_id in
           (match info.priority with
            | Some prio -> Connection.update_priority conn ~stream_id:info.stream_id prio
@@ -252,6 +267,8 @@ let handle_connection server flow =
             (match List.assoc_opt ":path" headers with
              | Some p -> entry.path <- p
              | None -> ());
+            if entry.path <> "" then
+              debug "Server_lite: path=%s" entry.path;
             (* Check for END_STREAM flag (no body) *)
             if info.end_stream then begin
               entry.end_stream <- true;
@@ -262,13 +279,17 @@ let handle_connection server flow =
       | Frame.Data ->
           let entry = get_or_create_stream stream_id in
           let data = Cstruct.to_string frame.payload in
+          debug "Server_lite: data stream=%ld len=%d end_stream=%b"
+            stream_id (String.length data)
+            (Frame.Flags.is_set frame.header.flags Frame.Flags.end_stream);
           Buffer.add_string entry.data_buffer data;
           let updates = Flow_control.consume_recv flow_control stream_id (Cstruct.length frame.payload) in
-          if updates <> [] then
+          if updates <> [] then begin
             let update_frames = List.map (fun (id, inc) ->
               Frame.make_window_update ~stream_id:id ~increment:(Int32.of_int inc)
             ) updates in
-            Connection.write_frames conn update_frames;
+            Connection.write_frames conn update_frames
+          end;
           if Frame.Flags.is_set frame.header.flags Frame.Flags.end_stream then begin
             entry.end_stream <- true;
             process_request stream_id entry
@@ -327,14 +348,17 @@ let handle_connection server flow =
   | Exit -> Connection.close conn
   | End_of_file -> Connection.close conn
   | Connection.Connection_error (code, msg) ->
+      traceln "Server_lite connection error: %s" msg;
       Connection.send_goaway conn ~last_stream_id:conn.Connection.last_stream_id
         ~error_code:code ~debug_data:msg;
       Connection.close conn
   | Invalid_argument msg ->
+      traceln "Server_lite invalid argument: %s" msg;
       Connection.send_goaway conn ~last_stream_id:conn.Connection.last_stream_id
         ~error_code:Frame.Error_code.protocol_error ~debug_data:msg;
       Connection.close conn
   | Failure msg ->
+      traceln "Server_lite failure: %s" msg;
       Connection.send_goaway conn ~last_stream_id:conn.Connection.last_stream_id
         ~error_code:Frame.Error_code.protocol_error ~debug_data:msg;
       Connection.close conn
