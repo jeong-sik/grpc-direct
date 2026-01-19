@@ -7,6 +7,10 @@ _build/
 # Dune
 _opam/
 
+# Worktrees
+.worktree/
+.worktrees/
+
 # Benchmark binaries (large files)
 ghz
 ghz-web
