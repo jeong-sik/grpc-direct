@@ -161,10 +161,10 @@ let handle_connection_full flow _addr =
         let data_len = Cstruct.length frame.payload in
 
         (* RFC 7540 §5.2: Batched flow control - update when threshold exceeded
-           Send WINDOW_UPDATE for connection only, once per 32KB consumed.
+           Send WINDOW_UPDATE for connection only, once per 128KB consumed.
            Note: Piggyback pattern was tested but hurt small message performance! *)
         bytes_consumed := !bytes_consumed + data_len;
-        if !bytes_consumed > 32768 then begin
+        if !bytes_consumed > 131072 then begin
           let increment = Int32.of_int !bytes_consumed in
           H2_lite.Connection.send_window_update conn ~stream_id:0l ~increment;
           bytes_consumed := 0
@@ -273,7 +273,7 @@ let handle_connection_fast flow _addr =
         let window_increment =
           if window_updates then (
             bytes_consumed := !bytes_consumed + data_len;
-            if !bytes_consumed > 32768 then (
+            if !bytes_consumed > 131072 then (
               let inc = !bytes_consumed in
               bytes_consumed := 0;
               inc

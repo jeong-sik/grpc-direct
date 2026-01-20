@@ -57,7 +57,7 @@ let handle_connection flow _addr =
 
         (* Batched WINDOW_UPDATE *)
         bytes_consumed := !bytes_consumed + data_len;
-        if !bytes_consumed > 32768 then begin
+        if !bytes_consumed > 131072 then begin
           H2_lite.Connection.send_window_update conn ~stream_id:0l
             ~increment:(Int32.of_int !bytes_consumed);
           bytes_consumed := 0

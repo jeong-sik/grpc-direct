@@ -80,7 +80,7 @@ let handle_connection flow _addr =
         let data_len = Cstruct.length frame.payload in
 
         bytes_consumed := !bytes_consumed + data_len;
-        if !bytes_consumed > 32768 then begin
+        if !bytes_consumed > 131072 then begin
           let increment = Int32.of_int !bytes_consumed in
           H2_lite.Connection.send_window_update conn ~stream_id:0l ~increment;
           bytes_consumed := 0
