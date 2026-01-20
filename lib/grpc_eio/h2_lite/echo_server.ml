@@ -159,6 +159,11 @@ let handle_connection_full flow _addr =
         (* Request body received *)
         let entry = Multiplexer.get_or_create mux stream_id in
         let data_len = Cstruct.length frame.payload in
+        let handle_t0 =
+          match outlier_ms with
+          | Some _ -> Some (Unix.gettimeofday ())
+          | None -> None
+        in
 
         (* RFC 7540 §5.2: Batched flow control - update when threshold exceeded
            Send WINDOW_UPDATE for connection only, once per 128KB consumed.
@@ -185,7 +190,7 @@ let handle_connection_full flow _addr =
             H2_lite.Connection.write_echo_response conn ~stream_id request_body;
             let elapsed_ms = (Unix.gettimeofday () -. t0) *. 1000.0 in
             if elapsed_ms >= threshold then
-              traceln "Outlier: stream=%ld len=%d ms=%.3f"
+              traceln "WriteOutlier: stream=%ld len=%d ms=%.3f"
                 stream_id (Cstruct.length request_body) elapsed_ms
           | None ->
             H2_lite.Connection.write_echo_response conn ~stream_id request_body);
@@ -193,7 +198,15 @@ let handle_connection_full flow _addr =
           (* Mark stream as done *)
           entry.state <- H2_lite.Stream.Closed;
           Multiplexer.remove mux stream_id
-        end
+        end;
+
+        (match handle_t0, outlier_ms with
+        | Some t0, Some threshold ->
+          let elapsed_ms = (Unix.gettimeofday () -. t0) *. 1000.0 in
+          if elapsed_ms >= threshold then
+            traceln "HandleOutlier: stream=%ld len=%d ms=%.3f"
+              stream_id data_len elapsed_ms
+        | _ -> ())
 
       | H2_lite.Frame.Settings when H2_lite.Frame.Flags.is_set
           frame.H2_lite.Frame.header.flags H2_lite.Frame.Flags.ack ->
@@ -270,6 +283,11 @@ let handle_connection_fast flow _addr =
       | H2_lite.Frame.Data ->
         let stream_id = frame.H2_lite.Frame.header.stream_id in
         let data_len = Cstruct.length frame.payload in
+        let handle_t0 =
+          match outlier_ms with
+          | Some _ -> Some (Unix.gettimeofday ())
+          | None -> None
+        in
         let window_increment =
           if window_updates then (
             bytes_consumed := !bytes_consumed + data_len;
@@ -299,14 +317,22 @@ let handle_connection_fast flow _addr =
               write_response ();
               let elapsed_ms = (Unix.gettimeofday () -. t0) *. 1000.0 in
               if elapsed_ms >= threshold then
-                traceln "Outlier: stream=%ld len=%d ms=%.3f"
+                traceln "WriteOutlier: stream=%ld len=%d ms=%.3f"
                   stream_id msg_len elapsed_ms
             | None ->
               write_response ())
           end else if window_updates && window_increment > 0 then
             H2_lite.Connection.send_window_update conn ~stream_id:0l
               ~increment:(Int32.of_int window_increment)
-        end
+        end;
+
+        (match handle_t0, outlier_ms with
+        | Some t0, Some threshold ->
+          let elapsed_ms = (Unix.gettimeofday () -. t0) *. 1000.0 in
+          if elapsed_ms >= threshold then
+            traceln "HandleOutlier: stream=%ld len=%d ms=%.3f"
+              stream_id data_len elapsed_ms
+        | _ -> ())
 
       | H2_lite.Frame.Settings ->
         if not (H2_lite.Frame.Flags.is_set
