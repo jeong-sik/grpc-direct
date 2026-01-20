@@ -226,22 +226,30 @@ let handle_connection_fast flow _addr =
       | H2_lite.Frame.Data ->
         let stream_id = frame.H2_lite.Frame.header.stream_id in
         let data_len = Cstruct.length frame.payload in
-
-        if window_updates then begin
-          bytes_consumed := !bytes_consumed + data_len;
-          if !bytes_consumed > 32768 then begin
-            H2_lite.Connection.send_window_update conn ~stream_id:0l
-              ~increment:(Int32.of_int !bytes_consumed);
-            bytes_consumed := 0
-          end
-        end;
+        let window_increment =
+          if window_updates then (
+            bytes_consumed := !bytes_consumed + data_len;
+            if !bytes_consumed > 32768 then (
+              let inc = !bytes_consumed in
+              bytes_consumed := 0;
+              inc
+            ) else
+              0
+          ) else
+            0
+        in
 
         if data_len >= 5 then begin
           let msg_len = Cstruct.BE.get_uint32 frame.payload 1 |> Int32.to_int in
           if msg_len > 0 && 5 + msg_len <= data_len then begin
             let request_body = Cstruct.sub frame.payload 5 msg_len in
-            H2_lite.Connection.write_echo_response conn ~stream_id request_body
-          end
+            if window_updates then
+              H2_lite.Connection.write_echo_response_with_window_update conn ~stream_id request_body ~window_increment
+            else
+              H2_lite.Connection.write_echo_response conn ~stream_id request_body
+          end else if window_updates && window_increment > 0 then
+            H2_lite.Connection.send_window_update conn ~stream_id:0l
+              ~increment:(Int32.of_int window_increment)
         end
 
       | H2_lite.Frame.Settings ->
