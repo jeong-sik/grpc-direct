@@ -87,6 +87,7 @@ let setup_outlier_log () =
 
 (** Optional GC trace for p99 correlation (disabled by default). *)
 let gc_alarm : Gc.alarm option ref = ref None
+let outlier_threshold_ms : float option ref = ref None
 
 let setup_gc_trace () =
   match Sys.getenv_opt "GRPC_EIO_GC_TRACE" with
@@ -104,6 +105,16 @@ let setup_gc_trace () =
       end
     ))
   | _ -> ()
+
+let setup_outlier_log () =
+  match Sys.getenv_opt "GRPC_EIO_ECHO_OUTLIER_MS" with
+  | Some value ->
+    (try
+       let threshold = float_of_string value in
+       if threshold > 0.0 then outlier_threshold_ms := Some threshold
+     with
+     | _ -> ())
+  | None -> ()
 
 (** Stream multiplexer for concurrent streams *)
 module Multiplexer = struct
