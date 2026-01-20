@@ -47,6 +47,7 @@ let tune_gc () =
 
 (** Optional GC trace for p99 correlation (disabled by default). *)
 let gc_alarm : Gc.alarm option ref = ref None
+let outlier_threshold_ms : float option ref = ref None
 
 let setup_gc_trace () =
   match Sys.getenv_opt "GRPC_EIO_GC_TRACE" with
@@ -64,6 +65,16 @@ let setup_gc_trace () =
       end
     ))
   | _ -> ()
+
+let setup_outlier_log () =
+  match Sys.getenv_opt "GRPC_EIO_ECHO_OUTLIER_MS" with
+  | Some value ->
+    (try
+       let threshold = float_of_string value in
+       if threshold > 0.0 then outlier_threshold_ms := Some threshold
+     with
+     | _ -> ())
+  | None -> ()
 
 (** Stream multiplexer for concurrent streams *)
 module Multiplexer = struct
@@ -107,6 +118,7 @@ let handle_connection_full flow _addr =
   (* Optimize socket for low-latency high-throughput (like grpc-go) *)
   optimize_socket flow;
   let conn = H2_lite.Connection.create flow in
+  let outlier_ms = !outlier_threshold_ms in
   (* RFC 7541: Decoder for incoming headers (encoder not needed - using pre-encoded) *)
   let hpack_decoder = H2_lite.Hpack.create () in
 
@@ -167,7 +179,16 @@ let handle_connection_full flow _addr =
 
           (* Zero-allocation echo response path:
              Single function writes HEADERS + DATA + TRAILERS directly to buffer *)
-          H2_lite.Connection.write_echo_response conn ~stream_id request_body;
+          (match outlier_ms with
+          | Some threshold ->
+            let t0 = Unix.gettimeofday () in
+            H2_lite.Connection.write_echo_response conn ~stream_id request_body;
+            let elapsed_ms = (Unix.gettimeofday () -. t0) *. 1000.0 in
+            if elapsed_ms >= threshold then
+              traceln "Outlier: stream=%ld len=%d ms=%.3f"
+                stream_id (Cstruct.length request_body) elapsed_ms
+          | None ->
+            H2_lite.Connection.write_echo_response conn ~stream_id request_body);
 
           (* Mark stream as done *)
           entry.state <- H2_lite.Stream.Closed;
@@ -224,6 +245,7 @@ let handle_connection_full flow _addr =
 let handle_connection_fast flow _addr =
   optimize_socket flow;
   let conn = H2_lite.Connection.create flow in
+  let outlier_ms = !outlier_threshold_ms in
   let window_updates =
     match Sys.getenv_opt "GRPC_EIO_ECHO_WINDOW_UPDATES" with
     | Some ("0" | "false" | "off") -> false
@@ -265,10 +287,22 @@ let handle_connection_fast flow _addr =
           let msg_len = Cstruct.BE.get_uint32 frame.payload 1 |> Int32.to_int in
           if msg_len > 0 && 5 + msg_len <= data_len then begin
             let request_body = Cstruct.sub frame.payload 5 msg_len in
-            if window_updates then
-              H2_lite.Connection.write_echo_response_with_window_update conn ~stream_id request_body ~window_increment
-            else
-              H2_lite.Connection.write_echo_response conn ~stream_id request_body
+            let write_response () =
+              if window_updates then
+                H2_lite.Connection.write_echo_response_with_window_update conn ~stream_id request_body ~window_increment
+              else
+                H2_lite.Connection.write_echo_response conn ~stream_id request_body
+            in
+            (match outlier_ms with
+            | Some threshold ->
+              let t0 = Unix.gettimeofday () in
+              write_response ();
+              let elapsed_ms = (Unix.gettimeofday () -. t0) *. 1000.0 in
+              if elapsed_ms >= threshold then
+                traceln "Outlier: stream=%ld len=%d ms=%.3f"
+                  stream_id msg_len elapsed_ms
+            | None ->
+              write_response ())
           end else if window_updates && window_increment > 0 then
             H2_lite.Connection.send_window_update conn ~stream_id:0l
               ~increment:(Int32.of_int window_increment)
@@ -335,6 +369,7 @@ let () =
 
   tune_gc ();
   setup_gc_trace ();
+  setup_outlier_log ();
   Eio_main.run @@ fun env ->
   traceln "";
   traceln "╔═══════════════════════════════════════════════════════╗";
