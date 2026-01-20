@@ -85,6 +85,26 @@ let setup_outlier_log () =
   | None -> ()
 ;;
 
+(** Optional GC trace for p99 correlation (disabled by default). *)
+let gc_alarm : Gc.alarm option ref = ref None
+
+let setup_gc_trace () =
+  match Sys.getenv_opt "GRPC_EIO_GC_TRACE" with
+  | Some ("1" | "true" | "on") ->
+    let start_time = Unix.gettimeofday () in
+    let last_major = ref 0 in
+    gc_alarm := Some (Gc.create_alarm (fun () ->
+      let st = Gc.quick_stat () in
+      if st.Gc.major_collections > !last_major then begin
+        last_major := st.Gc.major_collections;
+        let elapsed = Unix.gettimeofday () -. start_time in
+        traceln "GC major=%d minor=%d heap_words=%d live_words=%d time=%.3fs"
+          st.Gc.major_collections st.Gc.minor_collections
+          st.Gc.heap_words st.Gc.live_words elapsed
+      end
+    ))
+  | _ -> ()
+
 (** Stream multiplexer for concurrent streams *)
 module Multiplexer = struct
   type stream_entry =
