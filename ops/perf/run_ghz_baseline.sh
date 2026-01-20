@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 LOG_DIR="${LOG_DIR:-$ROOT/tmp}"
 PROFILE="${PROFILE:-release}"
 HOST="${HOST:-127.0.0.1}"
@@ -55,21 +56,37 @@ wait_for_port() {
       sleep 0.1
     done
   else
-    sleep 1
+    while ! python3 - <<PY >/dev/null 2>&1
+import socket
+host = "$HOST"
+port = int("$port")
+try:
+    with socket.create_connection((host, port), timeout=0.2):
+        pass
+except Exception:
+    raise SystemExit(1)
+PY
+    do
+      i=$((i + 1))
+      if [ "$i" -ge "$retries" ]; then
+        return 1
+      fi
+      sleep 0.1
+    done
   fi
 }
 
 cd "$ROOT"
 
 echo "==> Building h2_lite echo_server (profile=$PROFILE)"
-dune build --profile="$PROFILE" lib/grpc_eio/h2_lite/echo_server.exe
+dune build --root "$ROOT" --profile="$PROFILE" lib/grpc_eio/h2_lite/echo_server.exe
 
 echo "==> Starting h2_lite echo_server on $HOST:$PORT"
 echo "==> Env: GRPC_EIO_GC_TUNE=$GRPC_EIO_GC_TUNE GRPC_EIO_ECHO_FAST=$GRPC_EIO_ECHO_FAST GRPC_EIO_ECHO_WINDOW_UPDATES=$GRPC_EIO_ECHO_WINDOW_UPDATES"
 GRPC_EIO_GC_TUNE="$GRPC_EIO_GC_TUNE" \
 GRPC_EIO_ECHO_FAST="$GRPC_EIO_ECHO_FAST" \
 GRPC_EIO_ECHO_WINDOW_UPDATES="$GRPC_EIO_ECHO_WINDOW_UPDATES" \
-nohup dune exec --profile="$PROFILE" lib/grpc_eio/h2_lite/echo_server.exe -- "$PORT" \
+nohup dune exec --root "$ROOT" --profile="$PROFILE" lib/grpc_eio/h2_lite/echo_server.exe -- "$PORT" \
   > "$SERVER_LOG" 2>&1 & echo $! > "$SERVER_PID_FILE"
 
 if ! wait_for_port "$PORT"; then
