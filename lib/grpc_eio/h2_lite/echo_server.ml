@@ -28,9 +28,9 @@ let optimize_socket (flow : _ Eio.Flow.two_way) =
       (* TCP_NODELAY: disable Nagle's algorithm for immediate sends *)
       Unix.setsockopt unix_fd Unix.TCP_NODELAY true;
       (* Increase socket buffer sizes for better throughput
-         grpc-go uses 32KB, we use 64KB for batching *)
-      Unix.setsockopt_int unix_fd Unix.SO_SNDBUF (64 * 1024);
-      Unix.setsockopt_int unix_fd Unix.SO_RCVBUF (64 * 1024)
+         grpc-go uses 32KB, we use 256KB for batching *)
+      Unix.setsockopt_int unix_fd Unix.SO_SNDBUF (256 * 1024);
+      Unix.setsockopt_int unix_fd Unix.SO_RCVBUF (256 * 1024)
     )
   | None -> () (* Not a Unix socket, ignore *)
 
@@ -105,7 +105,8 @@ let handle_connection_full flow _addr =
 
     (* RFC 7540 §6.9.2: Increase connection-level window beyond default 65535
        Send WINDOW_UPDATE immediately to allow more data from client *)
-    let conn_window_increase = Int32.of_int (1048576 - 65535) in (* 1MB - 64KB *)
+    let target_conn_window = 16 * 1024 * 1024 in
+    let conn_window_increase = Int32.of_int (target_conn_window - 65535) in
     H2_lite.Connection.send_window_update conn ~stream_id:0l ~increment:conn_window_increase;
 
     let mux = Multiplexer.create () in
@@ -213,7 +214,8 @@ let handle_connection_fast flow _addr =
   try
     H2_lite.Connection.server_handshake conn;
 
-    let conn_window_increase = Int32.of_int (1048576 - 65535) in
+    let target_conn_window = 16 * 1024 * 1024 in
+    let conn_window_increase = Int32.of_int (target_conn_window - 65535) in
     H2_lite.Connection.send_window_update conn ~stream_id:0l ~increment:conn_window_increase;
 
     while not conn.closed do
