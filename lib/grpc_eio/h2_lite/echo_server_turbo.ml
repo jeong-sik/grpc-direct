@@ -19,8 +19,8 @@ let optimize_socket (flow : _ Eio.Flow.two_way) =
   | Some fd ->
     Eio_unix.Fd.use_exn "setsockopt" fd (fun unix_fd ->
       Unix.setsockopt unix_fd Unix.TCP_NODELAY true;
-      Unix.setsockopt_int unix_fd Unix.SO_SNDBUF (64 * 1024);
-      Unix.setsockopt_int unix_fd Unix.SO_RCVBUF (64 * 1024)
+      Unix.setsockopt_int unix_fd Unix.SO_SNDBUF (256 * 1024);
+      Unix.setsockopt_int unix_fd Unix.SO_RCVBUF (256 * 1024)
     )
   | None -> ()
 
@@ -36,8 +36,9 @@ let handle_connection flow _addr =
     (* Server handshake *)
     H2_lite.Connection.server_handshake conn;
 
-    (* Increase connection window to 1MB *)
-    let conn_window_increase = Int32.of_int (1048576 - 65535) in
+    (* Increase connection window to 16MB *)
+    let target_conn_window = 16 * 1024 * 1024 in
+    let conn_window_increase = Int32.of_int (target_conn_window - 65535) in
     H2_lite.Connection.send_window_update conn ~stream_id:0l ~increment:conn_window_increase;
 
     (* Main loop: ultra-tight frame processing *)
@@ -56,7 +57,7 @@ let handle_connection flow _addr =
 
         (* Batched WINDOW_UPDATE *)
         bytes_consumed := !bytes_consumed + data_len;
-        if !bytes_consumed > 32768 then begin
+        if !bytes_consumed > 131072 then begin
           H2_lite.Connection.send_window_update conn ~stream_id:0l
             ~increment:(Int32.of_int !bytes_consumed);
           bytes_consumed := 0

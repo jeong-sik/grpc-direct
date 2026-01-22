@@ -56,7 +56,7 @@ let grpc_settings = {
   header_table_size = 4096;  (* RFC 7540 default *)
   enable_push = false;  (* gRPC doesn't use server push *)
   max_concurrent_streams = 1000;  (* Higher for gRPC *)
-  initial_window_size = 1048576;  (* 1MB - larger for streaming *)
+  initial_window_size = 4_194_304;  (* 4MB - reduce flow-control stalls *)
   max_frame_size = 16384;
   max_header_list_size = 8192;
 }
@@ -114,9 +114,9 @@ let apply_peer_settings t settings =
 (** Peer max frame size (for header fragmentation) *)
 let peer_max_frame_size t = t.peer_settings.max_frame_size
 
-(** Buffer sizes from grpc-go *)
-let read_buffer_size = 32 * 1024   (* 32 KB *)
-let write_buffer_size = 64 * 1024  (* 64 KB *)
+(** Buffer sizes tuned for benchmark stability *)
+let read_buffer_size = 64 * 1024   (* 64 KB *)
+let write_buffer_size = 128 * 1024  (* 128 KB *)
 
 (** Create connection over Eio flow *)
 let create ?(settings = grpc_settings) ?(priority_scheduling = false)
