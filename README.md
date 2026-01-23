@@ -6,9 +6,9 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Built with LLM](https://img.shields.io/badge/Built%20with-LLM%20Assistance-blueviolet.svg)](#development)
 
-> ⚠️ **Experimental**
-> This project is under active development. APIs may change without notice.
-> Provided "as is" without warranty. See [LICENSE](LICENSE) for details.
+> 🧪 **Experimental**
+> This is a personal learning project, not production-ready.
+> Feedback and contributions are welcome!
 
 **Naming**: project `grpc-direct`; Eio library `grpc_eio`; core library `grpc_core`.  
 **Current version**: `v0.1.0` (experimental; matches opam/dune).
