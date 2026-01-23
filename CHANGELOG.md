@@ -3,7 +3,8 @@
 All notable changes to grpc-direct.
 
 > Note: This project is experimental.  
-> Changelog entries are draft notes and not a public release record.
+> Changelog entries are draft notes and not a public release record.  
+> Current released version is **0.1.0**; sections **0.2.0+** are draft planning notes.
 
 ## [Unreleased] - Draft
 
@@ -17,7 +18,7 @@ All notable changes to grpc-direct.
 - Updated package descriptions to reflect experimental status
 - Versioning TBD
 
-## [0.4.0] - 2025-01-11
+## [0.4.0] - Draft
 
 ### Added
 - **Connection Pool** (`Pool` module)
@@ -34,7 +35,7 @@ All notable changes to grpc-direct.
   - `call_with_retry` for failover support
   - Backend statistics
 
-## [0.3.0] - 2025-01-11
+## [0.3.0] - Draft
 
 ### Added
 - **Server Reflection** (`Reflection` module)
@@ -43,7 +44,7 @@ All notable changes to grpc-direct.
   - `list_services` and `file_containing_symbol` methods
   - `create_server_with_reflection` helper
 
-## [0.3.0-beta] - 2025-01-11
+## [0.3.0-beta] - Draft
 
 ### Added
 - **Retry Policy** (`Retry` module)
@@ -58,7 +59,7 @@ All notable changes to grpc-direct.
   - Server and client interceptors
   - `to_prometheus` text format export
 
-## [0.3.0-alpha] - 2025-01-11
+## [0.3.0-alpha] - Draft
 
 ### Added
 - **Health Check** (`Health` module)
@@ -71,7 +72,7 @@ All notable changes to grpc-direct.
   - Fixes blocking issue in concurrent calls
 - **Deadline Propagation** - `grpc-timeout` header parsing in server
 
-## [0.2.0] - 2025-01-11
+## [0.2.0] - Draft
 
 ### Added
 - **Native TLS support** via tls-eio with ALPN "h2" negotiation

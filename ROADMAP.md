@@ -2,7 +2,9 @@
 
 grpc-direct development roadmap. Feedback welcome via GitHub Issues.
 
-## v0.2.0 (Current)
+Current package version: **v0.1.0** (experimental).
+
+## v0.2.0 (Planned)
 
 **Theme**: Foundation + Security
 
@@ -13,7 +15,7 @@ grpc-direct development roadmap. Feedback welcome via GitHub Issues.
 - [x] Benchmark harness (results not published)
 - [x] Friendly error messages
 
-## v0.3.0 (Next)
+## v0.3.0 (Planned)
 
 **Theme**: Observability + Resilience
 
@@ -23,7 +25,7 @@ grpc-direct development roadmap. Feedback welcome via GitHub Issues.
 - [ ] Deadline propagation
 - [ ] Metrics hooks (for Prometheus/OpenTelemetry)
 
-## v0.4.0
+## v0.4.0 (Planned)
 
 **Theme**: Performance
 
