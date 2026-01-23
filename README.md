@@ -326,6 +326,11 @@ their READMEs for current details.
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 - [ROADMAP.md](ROADMAP.md) - Future plans
 
+## Development
+
+This project was developed with assistance from **Claude (Anthropic)** and other LLM tools.
+All code has been reviewed and tested by the maintainer.
+
 ## License
 
 Apache-2.0
