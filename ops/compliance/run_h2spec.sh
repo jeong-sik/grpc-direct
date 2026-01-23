@@ -49,10 +49,10 @@ wait_for_port() {
 cd "$ROOT"
 
 echo "==> Building h2spec_server (profile=$PROFILE)"
-dune build --profile="$PROFILE" bench/h2spec_server.exe
+dune build --root "$ROOT" --profile="$PROFILE" bench/h2spec_server.exe
 
 echo "==> Starting h2spec_server on $HOST:$PORT"
-nohup dune exec --profile="$PROFILE" bench/h2spec_server.exe -- \
+nohup dune exec --root "$ROOT" --profile="$PROFILE" bench/h2spec_server.exe -- \
   --port "$PORT" > "$SERVER_LOG" 2>&1 & echo $! > "$SERVER_PID_FILE"
 
 if ! wait_for_port "$PORT"; then

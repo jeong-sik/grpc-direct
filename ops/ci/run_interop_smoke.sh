@@ -57,7 +57,7 @@ mkdir -p "$LOG_DIR"
 
 (
   cd "$ROOT"
-  dune build --profile="$DUNE_PROFILE" bench/interop_streaming_server.exe
+  dune build --root "$ROOT" --profile="$DUNE_PROFILE" bench/interop_streaming_server.exe
 )
 
 (
