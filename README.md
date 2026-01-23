@@ -13,9 +13,8 @@
 **Naming**: project `grpc-direct`; Eio library `grpc_eio`; core library `grpc_core`.  
 **Current version**: `v0.1.0` (experimental; matches opam/dune).
 
-This library is Eio-native and effect-based. For alternatives, see
-[grpc-ocaml](https://github.com/blandinw/grpc-ocaml) and
-[ocaml-grpc](https://github.com/dialohq/ocaml-grpc) (refer to their docs for current details).
+This library is Eio-native and effect-based. For Lwt/Async alternatives, see
+[ocaml-grpc](https://github.com/dialohq/ocaml-grpc).
 
 ## Installation
 
@@ -301,11 +300,9 @@ experiments only; please treat any results as preliminary and non-authoritative.
 
 ## Alternatives
 
-- [grpc-ocaml](https://github.com/blandinw/grpc-ocaml)
-- [ocaml-grpc](https://github.com/dialohq/ocaml-grpc)
+- [ocaml-grpc](https://github.com/dialohq/ocaml-grpc) - Lwt/Async-based gRPC implementation
 
-Each project targets different runtime ecosystems and feature scopes; refer to
-their READMEs for current details.
+Different runtime ecosystem and feature scope; refer to their README for details.
 
 ## Documentation
 
