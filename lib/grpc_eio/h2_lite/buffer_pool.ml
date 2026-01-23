@@ -43,7 +43,7 @@ type ring_pool =
   }
 
 (** Maximum buffers per size class - enough for concurrent streams *)
-let pool_capacity = 64
+let pool_capacity = 128
 
 (** Create empty ring pool for one size class *)
 let create_ring_pool size =
