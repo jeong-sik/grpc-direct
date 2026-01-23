@@ -9,7 +9,7 @@ backend. Client/bidi streaming is not supported by the gRPC-Web browser spec.
 2) Run Envoy with the config below:
 
 ```sh
-cd lib/grpc-eio-next/examples/grpc-web
+cd grpc-direct/examples/grpc-web
 
 docker run --rm -p 8081:8081 \
   -v $(pwd)/envoy.yaml:/etc/envoy/envoy.yaml \

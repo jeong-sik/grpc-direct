@@ -15,7 +15,7 @@ let random_string len =
   String.init len (fun _ -> Char.chr (Random.int 256))
 
 let () =
-  Printf.printf "\n=== grpc-eio-next Benchmarks ===\n\n%!";
+  Printf.printf "\n=== grpc-direct Benchmarks ===\n\n%!";
   Printf.printf "%-30s %8s  %12s  %12s\n%!" "Benchmark" "Iters" "Latency" "Throughput";
   Printf.printf "%s\n%!" (String.make 70 '-');
 

@@ -11,7 +11,7 @@ This example demonstrates a production-style setup:
 ## Run server
 
 ```bash
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec examples/production/production_server.exe
 ```
@@ -23,7 +23,7 @@ Metrics endpoint:
 ## Run client
 
 ```bash
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec examples/production/production_client.exe
 ```
