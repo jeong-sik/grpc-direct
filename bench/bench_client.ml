@@ -1,6 +1,6 @@
 (** gRPC Client Performance Benchmark
 
-    Measures latency, throughput, and connection overhead for grpc-eio client.
+    Measures latency, throughput, and connection overhead for grpc-direct client.
     Designed to be comparable with Go/Rust/Python benchmarks.
 
     Usage:
@@ -213,7 +213,7 @@ let print_comparison rps p50_us p99_us =
   printf "┌────────────────────┬───────────┬───────────┬───────────┐\n";
   printf "│ Implementation     │ RPS       │ P50 (µs)  │ P99 (µs)  │\n";
   printf "├────────────────────┼───────────┼───────────┼───────────┤\n";
-  printf "│ OCaml grpc-eio     │ %9.0f │ %9.2f │ %9.2f │\n" rps (ns_to_us p50_us) (ns_to_us p99_us);
+  printf "│ OCaml grpc-direct     │ %9.0f │ %9.2f │ %9.2f │\n" rps (ns_to_us p50_us) (ns_to_us p99_us);
   printf "├────────────────────┼───────────┼───────────┼───────────┤\n";
   printf "│ Go grpc (typical)  │   ~50,000 │    ~50.00 │   ~200.00 │\n";
   printf "│ Rust tonic         │   ~80,000 │    ~30.00 │   ~100.00 │\n";
@@ -315,7 +315,7 @@ let () =
   let config, dry_run = parse_args () in
 
   printf "╔═══════════════════════════════════════════════════════╗\n";
-  printf "║       grpc-eio Performance Benchmark v0.3.0           ║\n";
+  printf "║       grpc-direct Performance Benchmark v0.3.0           ║\n";
   printf "╚═══════════════════════════════════════════════════════╝\n";
   printf "\nConfiguration:\n";
   printf "  Host:        %s\n" config.host;

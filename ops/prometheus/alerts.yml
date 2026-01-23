@@ -1,5 +1,5 @@
 groups:
-  - name: grpc_eio
+  - name: grpc_direct
     rules:
       - alert: GrpcHighErrorRate
         expr: |

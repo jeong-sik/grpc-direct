@@ -1,4 +1,4 @@
-(** grpc-eio: OCaml 5 gRPC library using Eio effects.
+(** grpc-direct: OCaml 5 gRPC library using Eio effects.
 
     This module provides the high-level API for gRPC servers and clients.
     Built on top of grpc-core for protocol handling and h2-eio for HTTP/2.

@@ -26,7 +26,7 @@ ghz --insecure --proto bench/go-comparison/echo.proto \
   127.0.0.1:50051
 ```
 
-## grpc-eio (OCaml) - h2_lite backend ⭐
+## grpc-direct (OCaml) - h2_lite backend ⭐
 
 **Recommended for benchmarking** - Uses custom h2_lite HTTP/2 stack:
 
@@ -38,7 +38,7 @@ dune exec lib/grpc_eio/h2_lite/echo_server.exe
 dune exec lib/grpc_eio/h2_lite/echo_server.exe -- 50099
 ```
 
-## grpc-eio (OCaml) - H2-eio backend
+## grpc-direct (OCaml) - H2-eio backend
 
 Uses external H2 library (slower than h2_lite):
 

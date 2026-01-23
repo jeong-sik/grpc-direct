@@ -1,6 +1,6 @@
 # Soak Test
 
-Runs a long-duration ghz workload against the local grpc-eio bench server.
+Runs a long-duration ghz workload against the local grpc-direct bench server.
 
 ## Usage
 

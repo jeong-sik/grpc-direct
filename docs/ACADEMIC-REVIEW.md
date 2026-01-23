@@ -1,4 +1,4 @@
-# grpc-eio Academic Peer Review
+# grpc-direct Academic Peer Review
 
 ## 학술적 피어 리뷰 시뮬레이션
 
@@ -108,7 +108,7 @@ pub struct Message {
     data: Bytes,  // Reference-counted, no copy
 }
 
-// grpc-eio: Current - copies on every decode
+// grpc-direct: Current - copies on every decode
 let decode_request ~codec body = ...  (* String copy *)
 ```
 
@@ -152,7 +152,7 @@ let decode_request ~codec body = ...  (* String copy *)
 
 ## 📊 종합 분석: 각 언어 구현체 장점 비교
 
-| 구현체 | 장점 | grpc-eio 적용 가능성 |
+| 구현체 | 장점 | grpc-direct 적용 가능성 |
 |--------|------|---------------------|
 | **grpc-go** | Protobuf codegen, Connection pooling, Service discovery | ⚠️ codegen 필요 |
 | **tonic (Rust)** | Zero-copy (Bytes), Tower middleware, HTTP/3 | ✅ Buffer 풀링 적용 |

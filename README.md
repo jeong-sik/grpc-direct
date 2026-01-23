@@ -256,18 +256,18 @@ let handler stream request =
 |---------|----------|
 | `grpc-direct-core` | Library `grpc_core` (framing, compression, status codes) |
 | `grpc-direct` | Library `grpc_eio` (server/client + Eio features) |
-| `grpc-direct-protoc` | `protoc-gen-grpc-eio` plugin + `grpc_protoc` library |
+| `grpc-direct-protoc` | `protoc-gen-grpc-direct` plugin + `grpc_protoc` library |
 
 ## Code Generation (protoc)
 
 Generate protobuf message types with `ocaml-protoc-plugin`, then generate gRPC
-stubs with `protoc-gen-grpc-eio`:
+stubs with `protoc-gen-grpc-direct`:
 
 ```bash
 protoc \
   --ocaml_out=. \
-  --grpc-eio_out=. \
-  --plugin=protoc-gen-grpc-eio=$(which protoc-gen-grpc-eio) \
+  --grpc-direct_out=. \
+  --plugin=protoc-gen-grpc-direct=$(which protoc-gen-grpc-direct) \
   your/service.proto
 ```
 

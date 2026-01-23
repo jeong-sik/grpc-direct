@@ -110,7 +110,7 @@ let () =
   ] (fun _ -> ()) "Multi-domain benchmark";
 
   Printf.printf "╔════════════════════════════════════════════════════════════════╗\n";
-  Printf.printf "║           grpc-eio Multi-Domain Benchmark                      ║\n";
+  Printf.printf "║           grpc-direct Multi-Domain Benchmark                      ║\n";
   Printf.printf "╠════════════════════════════════════════════════════════════════╣\n";
   Printf.printf "║  Requests: %d | Concurrency: %d | Port: %d               ║\n"
     total_requests concurrency port;

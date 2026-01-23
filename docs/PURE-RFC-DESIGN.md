@@ -1,4 +1,4 @@
-# grpc-eio v2: Pure RFC Implementation Design
+# grpc-direct v2: Pure RFC Implementation Design
 
 ## Overview
 
@@ -70,33 +70,33 @@ lib/grpc_core/
 
 ## Performance Baselines
 
-최신 결과는 `lib/grpc-direct/bench/README.md`의 `Latest Results` 섹션에 기록합니다.
+최신 결과는 `bench/README.md`의 `Latest Results` 섹션에 기록합니다.
 
 ## RFC Coverage Checklist (2026-01-18)
 
 ### RFC 7540 (HTTP/2)
-- ✅ Frame parsing/serialization: DATA, HEADERS, PRIORITY, RST_STREAM, SETTINGS, PUSH_PROMISE, PING, GOAWAY, WINDOW_UPDATE, CONTINUATION (`lib/grpc-direct/lib/grpc_eio/h2_lite/frame.ml`)
-- ✅ Stream state machine (idle/open/half-closed/closed) (`lib/grpc-direct/lib/grpc_eio/h2_lite/stream.ml`)
-- ✅ Flow control (connection + per-stream windows, WINDOW_UPDATE validation) (`lib/grpc-direct/lib/grpc_eio/h2_lite/flow_control.ml`)
-- ✅ SETTINGS validation + application (max frame size, header list size) (`lib/grpc-direct/lib/grpc_eio/h2_lite/connection.ml`, `lib/grpc-direct/lib/grpc_eio/h2_lite/h2_lite.ml`)
-- ✅ CONTINUATION reassembly for header blocks (`lib/grpc-direct/lib/grpc_eio/h2_lite/connection.ml`)
-- ⚠️ Priority: parsing + weighted RR scheduling; dependency tree not enforced (`lib/grpc-direct/lib/grpc_eio/h2_lite/priority_scheduler.ml`)
-- ⚠️ Server push: protocol support present; disabled by default for gRPC (`lib/grpc-direct/lib/grpc_eio/h2_lite/connection.ml`, `lib/grpc-direct/lib/grpc_eio/h2_lite/h2_lite.ml`)
+- ✅ Frame parsing/serialization: DATA, HEADERS, PRIORITY, RST_STREAM, SETTINGS, PUSH_PROMISE, PING, GOAWAY, WINDOW_UPDATE, CONTINUATION (`lib/grpc_eio/h2_lite/frame.ml`)
+- ✅ Stream state machine (idle/open/half-closed/closed) (`lib/grpc_eio/h2_lite/stream.ml`)
+- ✅ Flow control (connection + per-stream windows, WINDOW_UPDATE validation) (`lib/grpc_eio/h2_lite/flow_control.ml`)
+- ✅ SETTINGS validation + application (max frame size, header list size) (`lib/grpc_eio/h2_lite/connection.ml`, `lib/grpc_eio/h2_lite/h2_lite.ml`)
+- ✅ CONTINUATION reassembly for header blocks (`lib/grpc_eio/h2_lite/connection.ml`)
+- ⚠️ Priority: parsing + weighted RR scheduling; dependency tree not enforced (`lib/grpc_eio/h2_lite/priority_scheduler.ml`)
+- ⚠️ Server push: protocol support present; disabled by default for gRPC (`lib/grpc_eio/h2_lite/connection.ml`, `lib/grpc_eio/h2_lite/h2_lite.ml`)
 
 ### RFC 7541 (HPACK)
-- ✅ Static + dynamic tables with eviction + size updates (`lib/grpc-direct/lib/grpc_eio/h2_lite/hpack.ml`)
-- ✅ Huffman encode/decode with auto selection (`lib/grpc-direct/lib/grpc_eio/h2_lite/hpack.ml`)
-- ✅ Header list size enforcement via SETTINGS_MAX_HEADER_LIST_SIZE (`lib/grpc-direct/lib/grpc_eio/h2_lite/h2_lite.ml`)
+- ✅ Static + dynamic tables with eviction + size updates (`lib/grpc_eio/h2_lite/hpack.ml`)
+- ✅ Huffman encode/decode with auto selection (`lib/grpc_eio/h2_lite/hpack.ml`)
+- ✅ Header list size enforcement via SETTINGS_MAX_HEADER_LIST_SIZE (`lib/grpc_eio/h2_lite/h2_lite.ml`)
 
 ### gRPC over HTTP/2
-- ✅ 5-byte message framing + compression (`lib/grpc-direct/lib/grpc_core/message.ml`)
-- ✅ Required headers/metadata (content-type, te: trailers, grpc-encoding, grpc-accept-encoding, grpc-timeout) (`lib/grpc-direct/lib/grpc_eio/client.ml`, `lib/grpc-direct/lib/grpc_eio/server.ml`)
-- ✅ Status + trailers handling with percent-encoding (`lib/grpc-direct/lib/grpc_eio/http2_handler.ml`, `lib/grpc-direct/lib/grpc_eio/server.ml`)
-- ✅ Unary + streaming request paths (`lib/grpc-direct/lib/grpc_eio/client.ml`, `lib/grpc-direct/lib/grpc_eio/server.ml`)
+- ✅ 5-byte message framing + compression (`lib/grpc_core/message.ml`)
+- ✅ Required headers/metadata (content-type, te: trailers, grpc-encoding, grpc-accept-encoding, grpc-timeout) (`lib/grpc_eio/client.ml`, `lib/grpc_eio/server.ml`)
+- ✅ Status + trailers handling with percent-encoding (`lib/grpc_eio/http2_handler.ml`, `lib/grpc_eio/server.ml`)
+- ✅ Unary + streaming request paths (`lib/grpc_eio/client.ml`, `lib/grpc_eio/server.ml`)
 
 ### gRPC-Web
-- ✅ HTTP/1.1 bridge + binary/text + trailers-in-body (0x80 frame) (`lib/grpc-direct/lib/grpc_eio/grpc_web.ml`, `lib/grpc-direct/lib/grpc_eio/grpc_web_server.ml`)
-- ✅ WebSocket bridge (grpc-websockets subprotocol) (`lib/grpc-direct/lib/grpc_eio/grpc_web_ws_server.ml`)
+- ✅ HTTP/1.1 bridge + binary/text + trailers-in-body (0x80 frame) (`lib/grpc_eio/grpc_web.ml`, `lib/grpc_eio/grpc_web_server.ml`)
+- ✅ WebSocket bridge (grpc-websockets subprotocol) (`lib/grpc_eio/grpc_web_ws_server.ml`)
 
 ## Implementation Plan
 

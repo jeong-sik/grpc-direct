@@ -6,9 +6,9 @@ rule_files:
   - /etc/prometheus/alerts.yml
 
 scrape_configs:
-  - job_name: grpc_eio
+  - job_name: grpc_direct
     metrics_path: /metrics
     static_configs:
       - targets:
-          # Replace with your grpc-eio metrics endpoint.
-          - grpc-eio:9464
+          # Replace with your grpc-direct metrics endpoint.
+          - grpc-direct:9464

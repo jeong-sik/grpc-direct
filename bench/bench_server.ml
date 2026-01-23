@@ -1,7 +1,7 @@
 (** Standalone Echo Server for Benchmarking
 
     This server runs independently, allowing fair comparison with:
-    - grpc-eio client
+    - grpc-direct client
     - ghz (Go gRPC benchmarking tool)
 
     Supports both single-domain and multi-domain modes for scaling benchmarks.
@@ -156,7 +156,7 @@ let run_single_domain env =
   let net = Eio.Stdenv.net env in
 
   printf "\n╔═══════════════════════════════════════════════════════╗\n";
-  printf "║       grpc-eio Echo Server (Single Domain)            ║\n";
+  printf "║       grpc-direct Echo Server (Single Domain)            ║\n";
   printf "╚═══════════════════════════════════════════════════════╝\n\n";
 
   printf "Server listening on port %d\n" port;
@@ -193,7 +193,7 @@ let run_multi_domain ~domains env =
   in
 
   printf "\n╔═══════════════════════════════════════════════════════╗\n";
-  printf "║       grpc-eio Echo Server (Multi-Domain)             ║\n";
+  printf "║       grpc-direct Echo Server (Multi-Domain)             ║\n";
   printf "╚═══════════════════════════════════════════════════════╝\n\n";
 
   printf "Server listening on port %d with %d domains\n" port num_domains;
@@ -266,7 +266,7 @@ let () =
   Arg.parse [
     "--multi", Arg.Set multi, "Enable multi-domain mode";
     "--domains", Arg.Set_int domains, "Number of domains (0=auto)";
-  ] (fun _ -> ()) "grpc-eio benchmark server";
+  ] (fun _ -> ()) "grpc-direct benchmark server";
 
   Eio_main.run @@ fun env ->
   if !multi then

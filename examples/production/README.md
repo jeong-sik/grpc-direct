@@ -49,7 +49,7 @@ This example uses raw string payloads for simplicity. For protobuf types,
 use the code generator:
 
 ```bash
-protoc --ocaml_out=. --grpc-eio_out=. \
-  --plugin=protoc-gen-grpc-eio=$(which protoc-gen-grpc-eio) \
+protoc --ocaml_out=. --grpc-direct_out=. \
+  --plugin=protoc-gen-grpc-direct=$(which protoc-gen-grpc-direct) \
   your/service.proto
 ```

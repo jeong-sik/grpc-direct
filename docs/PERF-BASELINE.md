@@ -1,9 +1,9 @@
-# Performance Baseline (grpc-eio) — Draft
+# Performance Baseline (grpc-direct) — Draft
 
 > Note: Public benchmarks are not published yet.  
 > This document keeps the procedure, but omits numbers.
 
-This document defines the grpc-eio performance baseline and regression
+This document defines the grpc-direct performance baseline and regression
 thresholds for unary echo on localhost.
 
 ## Environment (example)
@@ -59,7 +59,7 @@ thresholds via `ops/perf/check_ghz.py`.
 ## Re-run (example)
 
 ```bash
-# grpc-eio server (h2_lite backend)
+# grpc-direct server (h2_lite backend)
 dune exec --profile=release lib/grpc_eio/h2_lite/echo_server.exe -- 50099
 
 # Standard test

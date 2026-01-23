@@ -1,4 +1,4 @@
-# Compliance Gates (grpc-eio)
+# Compliance Gates (grpc-direct)
 
 This document defines protocol compliance checks for HTTP/2 and gRPC.
 

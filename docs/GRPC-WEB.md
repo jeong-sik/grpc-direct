@@ -1,6 +1,6 @@
 # gRPC-Web Support
 
-grpc-eio provides a native gRPC-Web bridge over HTTP/1.1 with CORS support.
+grpc-direct provides a native gRPC-Web bridge over HTTP/1.1 with CORS support.
 Both binary and text (base64) modes are supported.
 
 ## Server
