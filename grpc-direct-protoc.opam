@@ -3,8 +3,8 @@ opam-version: "2.0"
 version: "0.1.0"
 synopsis: "Protoc plugin for grpc-direct"
 description: "Generate OCaml code from .proto files for grpc-direct"
-maintainer: ["Jeong-Sik Yun <vincent.dev@kidsnote.com>"]
-authors: ["Jeong-Sik Yun <vincent.dev@kidsnote.com>"]
+maintainer: ["Jeong-Sik Yun"]
+authors: ["Jeong-Sik Yun"]
 license: "BSD-3-Clause"
 homepage: "https://github.com/jeong-sik/grpc-direct"
 doc: "https://github.com/jeong-sik/grpc-direct"

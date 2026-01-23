@@ -1,4 +1,4 @@
-(** Model Inference Server - Production-ready with TLS + Health Check
+(** Model Inference Server - Production-style example with TLS + Health Check
 
     Run with: dune exec examples/model-server/inference_server.exe
 

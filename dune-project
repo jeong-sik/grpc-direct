@@ -5,8 +5,8 @@
 (generate_opam_files true)
 
 (license BSD-3-Clause)
-(authors "Jeong-Sik Yun <vincent.dev@kidsnote.com>")
-(maintainers "Jeong-Sik Yun <vincent.dev@kidsnote.com>")
+(authors "Jeong-Sik Yun")
+(maintainers "Jeong-Sik Yun")
 (source (github jeong-sik/grpc-direct))
 (documentation "https://github.com/jeong-sik/grpc-direct")
 
@@ -24,8 +24,8 @@ Zero dependencies on runtime systems - works with Eio, Lwt, or Async.")
 
 (package
  (name grpc-direct)
- (synopsis "Production-ready gRPC for OCaml 5.x with direct-style Eio effects")
- (description "Modern gRPC for OCaml 5 using direct-style effects with Eio.
+ (synopsis "Experimental gRPC for OCaml 5.x with direct-style Eio effects")
+ (description "Experimental gRPC for OCaml 5 using direct-style effects with Eio.
 Features: Health Check, Retry Policy, Prometheus Metrics, Server Reflection,
 Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (depends

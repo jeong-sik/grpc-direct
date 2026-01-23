@@ -5,8 +5,8 @@ synopsis: "Pure OCaml gRPC core library"
 description: """
 Core gRPC functionality: message framing, compression (gzip, zstd), status codes.
 Zero dependencies on runtime systems - works with Eio, Lwt, or Async."""
-maintainer: ["Jeong-Sik Yun <vincent.dev@kidsnote.com>"]
-authors: ["Jeong-Sik Yun <vincent.dev@kidsnote.com>"]
+maintainer: ["Jeong-Sik Yun"]
+authors: ["Jeong-Sik Yun"]
 license: "BSD-3-Clause"
 homepage: "https://github.com/jeong-sik/grpc-direct"
 doc: "https://github.com/jeong-sik/grpc-direct"
