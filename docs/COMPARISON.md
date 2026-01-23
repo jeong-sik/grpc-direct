@@ -2,6 +2,8 @@
 
 Comprehensive comparison of grpc-direct with other language implementations.
 
+Naming: project `grpc-direct`; Eio library `grpc_eio`; core library `grpc_core`.
+
 > Note: Public performance benchmarks are not published yet.  
 > This document focuses on qualitative comparisons for now.
 
@@ -151,90 +153,6 @@ Client.call_unary ~sw ~env ~deadline:300.0 client ~service ~method_ ~request
 - **Maximum throughput**: Rust tonic is faster
 - **Enterprise ecosystem**: Java/Go have more tooling
 - **Protobuf codegen**: grpc-direct requires manual message handling
-
-## New in v0.4.0: State-of-the-Art Algorithms
-
-grpc-direct now includes cutting-edge algorithms from systems research:
-
-### Power of Two Choices (P2C) Load Balancer
-Based on Google Maglev. O(log log n) max load vs O(log n) for random.
-```ocaml
-let lb = Algorithms.P2C.create [("server1", 1.0); ("server2", 1.0)] in
-match Algorithms.P2C.acquire lb with
-| Some server -> (* use server *)
-| None -> (* all servers down *)
-```
-
-### Lock-free Ring Buffer
-LMAX Disruptor pattern for high-throughput message queuing.
-```ocaml
-let buf = Algorithms.RingBuffer.create 1024 in
-ignore (Algorithms.RingBuffer.try_push buf msg);
-match Algorithms.RingBuffer.try_pop buf with
-| Some msg -> (* process *)
-| None -> (* empty *)
-```
-
-### Adaptive Batching
-Netflix Zuul-inspired request coalescing.
-```ocaml
-let batcher = Algorithms.AdaptiveBatching.create () in
-match Algorithms.AdaptiveBatching.add batcher request with
-| Some batch -> (* process batch *)
-| None -> (* still accumulating *)
-```
-
-### HDR Histogram
-Accurate percentile tracking with bounded memory.
-```ocaml
-let hist = Algorithms.ExpHistogram.create ~min_value:0.001 ~max_value:10.0 in
-Algorithms.ExpHistogram.record hist latency;
-Printf.printf "P99: %.3f\n" (Algorithms.ExpHistogram.p99 hist)
-```
-
-### Circuit Breaker
-Hystrix-style resilience pattern.
-```ocaml
-let cb = Algorithms.CircuitBreaker.create () in
-if Algorithms.CircuitBreaker.allow cb then begin
-  try do_call (); Algorithms.CircuitBreaker.record_success cb
-  with _ -> Algorithms.CircuitBreaker.record_failure cb
-end
-```
-
-## Multi-Domain Support (v0.4.0)
-
-True parallel request processing using OCaml 5 domains:
-
-```ocaml
-(* Auto-detect optimal domain count *)
-Server_multi.serve_multi ~domains:0 ~env server
-```
-
-Benefits:
-- Linear scalability up to CPU core count
-- Independent GC per domain
-- SO_REUSEPORT kernel load balancing
-
-## Roadmap
-
-### v0.4.0 (In Progress) ✅
-
-- [x] Multi-domain server (SO_REUSEPORT)
-- [x] Buffer pooling (zero-copy)
-- [x] Connection pooling
-- [x] P2C load balancing
-- [x] Circuit breaker
-- [x] HDR Histogram metrics
-- [ ] Prometheus integration
-
-### v0.5.0 (Planned)
-
-- [ ] Protobuf codegen plugin (PPX)
-- [x] gRPC-Web support
-- [ ] OpenTelemetry tracing
-- [ ] Service mesh integration (Istio/Linkerd)
-- [ ] io_uring backend (Linux)
 
 ## References
 

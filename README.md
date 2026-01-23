@@ -10,6 +10,9 @@
 > **Benchmarks are not published yet** (local experiments only).  
 > Use at your own risk.
 
+**Naming**: project `grpc-direct`; Eio library `grpc_eio`; core library `grpc_core`.  
+**Current version**: `v0.1.0` (experimental; matches opam/dune).
+
 This library is Eio-native and effect-based. For alternatives, see
 [grpc-ocaml](https://github.com/blandinw/grpc-ocaml) and
 [ocaml-grpc](https://github.com/dialohq/ocaml-grpc) (refer to their docs for current details).
