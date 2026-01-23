@@ -65,27 +65,29 @@ module EchoService = struct
     in
     Message.to_bytes { Message.seq = !count; content = summary }
 
-  (** Bidi Streaming: Echo each message immediately *)
-  let echo_bidi request_stream =
-    let response_stream = Grpc_eio.Stream.create 16 in
-    (* In a real server, this would be a fiber that reads and writes *)
-    let rec process () =
-      match Grpc_eio.Stream.take request_stream with
-      | bytes ->
-          let msg = Message.of_bytes bytes in
-          let response = { msg with content = "Bidi echo: " ^ msg.content } in
-          Grpc_eio.Stream.add response_stream (Message.to_bytes response);
-          process ()
-      | exception End_of_file ->
-          Grpc_eio.Stream.close response_stream
-    in
-    process ();
-    response_stream
 end
 
 let () =
   Eio_main.run @@ fun env ->
   Eio.Switch.run @@ fun sw ->
+  let echo_bidi request_stream =
+    let response_stream = Grpc_eio.Stream.create 16 in
+    (* Run bidi processing in a fiber so handler returns immediately. *)
+    Eio.Fiber.fork ~sw (fun () ->
+      let rec process () =
+        match Grpc_eio.Stream.take request_stream with
+        | bytes ->
+            let msg = Message.of_bytes bytes in
+            let response = { msg with content = "Bidi echo: " ^ msg.content } in
+            Grpc_eio.Stream.add response_stream (Message.to_bytes response);
+            process ()
+        | exception End_of_file ->
+            Grpc_eio.Stream.close response_stream
+      in
+      process ()
+    );
+    response_stream
+  in
 
   (* Create service with all 4 RPC types *)
   let echo_service =
@@ -93,7 +95,7 @@ let () =
     |> Grpc_eio.Service.add_unary "Echo" EchoService.echo
     |> Grpc_eio.Service.add_server_streaming "EchoExpand" EchoService.echo_expand
     |> Grpc_eio.Service.add_client_streaming "EchoCollect" EchoService.echo_collect
-    |> Grpc_eio.Service.add_bidi_streaming "EchoBidi" EchoService.echo_bidi
+    |> Grpc_eio.Service.add_bidi_streaming "EchoBidi" echo_bidi
   in
 
   (* Create server with logging and stream interceptors *)

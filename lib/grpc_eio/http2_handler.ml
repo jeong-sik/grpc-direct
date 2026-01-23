@@ -265,13 +265,9 @@ let handle_client_streaming
 
 (** Handle bidirectional streaming RPC.
 
-    Uses Promise-based termination signal instead of busy-wait polling.
-    When the request stream ends (on_eof), we signal the writer fiber
-    to stop via a Promise, avoiding CPU-wasting yield loops.
-
-    Two-phase shutdown to prevent race condition:
-    1. done_promise: signals writer to start draining
-    2. writer_done_promise: signals drain complete, safe to close body *)
+    Writer fiber blocks on response stream and exits on End_of_file.
+    Request end signals handler via request_stream close; we then wait
+    for response stream completion before closing trailers. *)
 let handle_bidi_streaming
     ~sw
     ~clock
@@ -291,14 +287,10 @@ let handle_bidi_streaming
   let body_writer = ref None in
   let finished = ref false in
 
-  (* Promise to signal the writer fiber when request stream ends *)
-  let done_promise, done_resolver = Eio.Promise.create () in
+  let response_stream = handler request_stream in
+
   (* Promise for writer fiber to signal drain completion *)
   let writer_done_promise, writer_done_resolver = Eio.Promise.create () in
-  let signal_done () =
-    if not (Eio.Promise.is_resolved done_promise) then
-      Eio.Promise.resolve done_resolver ()
-  in
   let signal_writer_done () =
     if not (Eio.Promise.is_resolved writer_done_promise) then
       Eio.Promise.resolve writer_done_resolver ()
@@ -309,7 +301,7 @@ let handle_bidi_streaming
       finished := true;
       Body.Reader.close body;
       Grpc_stream.close request_stream;
-      signal_done ();
+      Grpc_stream.close response_stream;
       Eio.Promise.await writer_done_promise;
       if !response_started then begin
         schedule_status_trailers ~reqd status;
@@ -337,18 +329,14 @@ let handle_bidi_streaming
       match respond_with_streaming_safe ~reqd resp with
       | None ->
           finished := true;
-          signal_done ();
+          Grpc_stream.close response_stream;
           signal_writer_done ()
       | Some bw ->
           body_writer := Some bw
     end
   in
 
-  let response_stream = handler request_stream in
-
-  (* Writer fiber: blocks on stream instead of polling.
-     Uses Fiber.first to race between getting a message and done signal.
-     This avoids busy-waiting and properly terminates when request ends. *)
+  (* Writer fiber: blocks on response stream and exits on End_of_file. *)
   Eio.Fiber.fork ~sw (fun () ->
     let write_message msg =
       ensure_response_started ();
@@ -364,31 +352,20 @@ let handle_bidi_streaming
                 | `Written -> ()
                 | `Closed ->
                     finished := true;
-                    signal_done ())
+                    Grpc_stream.close response_stream;
+                    signal_writer_done ())
           | None -> ()
     in
     let rec write_responses () =
-      if !finished then ()
+      if !finished then
+        signal_writer_done ()
       else
-      (* Race: either get a message from stream or receive done signal.
-         Fiber.first cancels the loser, which is safe for both operations. *)
-      match Eio.Fiber.first
-        (fun () -> `Msg (Grpc_stream.take response_stream))
-        (fun () -> Eio.Promise.await done_promise; `Done)
-      with
-      | `Msg msg ->
-          write_message msg;
-          write_responses ()
-      | `Done ->
-          (* Drain any remaining buffered messages before exiting *)
-          let rec drain () =
-            match Grpc_stream.take_nonblocking response_stream with
-            | Some msg -> write_message msg; drain ()
-            | None -> ()
-          in
-          drain ();
-          (* Signal that drain is complete - safe to close body now *)
-          signal_writer_done ()
+        match Grpc_stream.take response_stream with
+        | msg ->
+            write_message msg;
+            write_responses ()
+        | exception End_of_file ->
+            signal_writer_done ()
     in
     write_responses ()
   );
@@ -416,8 +393,6 @@ let handle_bidi_streaming
           | Ok (messages, _) ->
               List.iter (fun msg -> Grpc_stream.add request_stream msg) messages;
               Grpc_stream.close request_stream;
-              (* Signal writer fiber that we're done receiving *)
-              signal_done ();
               (* Wait for writer fiber to complete drain before closing body.
                  This prevents race condition where body is closed while
                  writer is still flushing buffered messages. *)
