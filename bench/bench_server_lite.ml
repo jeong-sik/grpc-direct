@@ -19,16 +19,18 @@ let echo_handler (request : string) : string =
      both have same structure (string message = 1),
      so we can return bytes as-is for maximum performance *)
   request
+;;
 
 let () =
-  Eio_main.run @@ fun env ->
-  Eio.Switch.run @@ fun sw ->
-
+  Eio_main.run
+  @@ fun env ->
+  Eio.Switch.run
+  @@ fun sw ->
   (* Create service with the correct name matching echo.proto *)
-  let service = Grpc_eio.Service.create "echo.EchoService"
+  let service =
+    Grpc_eio.Service.create "echo.EchoService"
     |> Grpc_eio.Service.add_unary "Echo" echo_handler
   in
-
   Printf.printf "\n";
   Printf.printf "╔═══════════════════════════════════════════════════════╗\n";
   Printf.printf "║     grpc-direct Server_lite (h2_lite) Benchmark          ║\n";
@@ -44,6 +46,6 @@ let () =
   Printf.printf "      -n 100000 -c 50 127.0.0.1:%d\n" port;
   Printf.printf "\n";
   flush stdout;
-
   (* Start Server_lite (uses h2_lite internally) *)
   Grpc_eio.Server_lite.serve_service ~sw ~env ~port service
+;;

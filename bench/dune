@@ -8,7 +8,17 @@
 
 (executable
  (name bench_echo_real)
- (libraries grpc_eio grpc_core h2 h2-eio eio eio_main mtime mtime.clock.os unix bigstringaf))
+ (libraries
+  grpc_eio
+  grpc_core
+  h2
+  h2-eio
+  eio
+  eio_main
+  mtime
+  mtime.clock.os
+  unix
+  bigstringaf))
 
 (executable
  (name bench_h2_raw)
@@ -36,11 +46,28 @@
 
 (executable
  (name interop_streaming_server)
- (libraries grpc_eio grpc_core eio eio_main mtime mtime.clock.os unix mirage-crypto-rng.unix))
+ (libraries
+  grpc_eio
+  grpc_core
+  eio
+  eio_main
+  mtime
+  mtime.clock.os
+  unix
+  mirage-crypto-rng.unix))
 
 (executable
  (name interop_official_server)
- (libraries grpc_eio grpc_core eio eio_main mtime mtime.clock.os unix mirage-crypto-rng.unix))
+ (libraries
+  grpc_eio
+  grpc_core
+  eio
+  eio_main
+  mtime
+  mtime.clock.os
+  unix
+  mirage-crypto-rng.unix))
+
 ; These files need to be created
 ; (executable
 ;  (name bench_client_real)

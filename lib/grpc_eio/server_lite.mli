@@ -8,11 +8,11 @@
 (** {1 Configuration} *)
 
 (** Server configuration *)
-type config = {
-  host : string;
-  port : int;
-  max_concurrent_streams : int;
-}
+type config =
+  { host : string
+  ; port : int
+  ; max_concurrent_streams : int
+  }
 
 (** Default configuration: 127.0.0.1:50051, 100 concurrent streams *)
 val default_config : config
@@ -36,7 +36,12 @@ val add_service : Service.t -> t -> t
     @param env Eio environment for network access
     @param config Server configuration
     @param services List of gRPC services to serve *)
-val serve : sw:Eio.Switch.t -> env:Eio_unix.Stdenv.base -> ?config:config -> Service.t list -> unit
+val serve
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> ?config:config
+  -> Service.t list
+  -> unit
 
 (** Convenience function for serving a single service.
 
@@ -44,4 +49,9 @@ val serve : sw:Eio.Switch.t -> env:Eio_unix.Stdenv.base -> ?config:config -> Ser
     @param env Eio environment
     @param port Listen port
     @param service Single gRPC service *)
-val serve_service : sw:Eio.Switch.t -> env:Eio_unix.Stdenv.base -> port:int -> Service.t -> unit
+val serve_service
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> port:int
+  -> Service.t
+  -> unit

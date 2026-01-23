@@ -19,6 +19,7 @@
 (** Counter for simple incrementing values *)
 module Counter : sig
   type t
+
   val create : unit -> t
   val inc : t -> unit
   val inc_by : t -> int -> unit
@@ -29,6 +30,7 @@ end
 (** Gauge for values that can go up and down *)
 module Gauge : sig
   type t
+
   val create : unit -> t
   val set : t -> float -> unit
   val inc : t -> unit
@@ -61,15 +63,15 @@ val create : unit -> t
 val record_call_start : t -> method_:string -> unit
 
 (** Record a call end with latency and success status *)
-val record_call_end :
-  t ->
-  method_:string ->
-  latency_sec:float ->
-  success:bool ->
-  ?request_size:int ->
-  ?response_size:int ->
-  unit ->
-  unit
+val record_call_end
+  :  t
+  -> method_:string
+  -> latency_sec:float
+  -> success:bool
+  -> ?request_size:int
+  -> ?response_size:int
+  -> unit
+  -> unit
 
 (** Server-side metrics interceptor.
     Automatically records call counts, latencies, and errors. *)
@@ -110,13 +112,13 @@ val to_prometheus : t -> string
     Defaults to 127.0.0.1:9464 and path "/metrics".
     To bind on a different interface/port, pass an explicit sockaddr.
 *)
-val serve_prometheus :
-  ?addr:Eio.Net.Sockaddr.stream ->
-  ?path:string ->
-  sw:Eio.Switch.t ->
-  env:< net : _ Eio.Net.t; .. > ->
-  t ->
-  unit
+val serve_prometheus
+  :  ?addr:Eio.Net.Sockaddr.stream
+  -> ?path:string
+  -> sw:Eio.Switch.t
+  -> env:< net : _ Eio.Net.t ; .. >
+  -> t
+  -> unit
 
 (** Print metrics summary to a log function *)
 val log_summary : ?log:(string -> unit) -> t -> unit

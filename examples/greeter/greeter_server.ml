@@ -15,6 +15,7 @@ module HelloRequest = struct
   let of_bytes bytes =
     (* Simple parsing - in production use protobuf *)
     { name = String.trim bytes }
+  ;;
 end
 
 module HelloReply = struct
@@ -28,28 +29,28 @@ module GreeterImpl = struct
   let say_hello (request : HelloRequest.t) : HelloReply.t =
     let message = Printf.sprintf "Hello, %s!" request.name in
     { HelloReply.message }
+  ;;
 end
 
 let () =
-  Eio_main.run @@ fun env ->
-  Eio.Switch.run @@ fun sw ->
-
+  Eio_main.run
+  @@ fun env ->
+  Eio.Switch.run
+  @@ fun sw ->
   (* Create the service *)
   let greeter_service =
     Grpc_eio.Service.create "helloworld.Greeter"
     |> Grpc_eio.Service.add_unary "SayHello" (fun bytes ->
-        let request = HelloRequest.of_bytes bytes in
-        let response = GreeterImpl.say_hello request in
-        HelloReply.to_bytes response
-      )
+      let request = HelloRequest.of_bytes bytes in
+      let response = GreeterImpl.say_hello request in
+      HelloReply.to_bytes response)
   in
-
   (* Create server with logging interceptor *)
   let server =
     Grpc_eio.Server.create ()
     |> Grpc_eio.Server.add_service greeter_service
     |> Grpc_eio.Server.with_interceptor (Grpc_eio.Interceptor.logging ())
   in
-
   Printf.printf "🚀 Greeter server starting on port 50051...\n%!";
   Grpc_eio.Server.serve ~sw ~env server
+;;

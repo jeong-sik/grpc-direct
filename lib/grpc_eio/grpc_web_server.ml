@@ -432,13 +432,13 @@ let serve ?config ~sw ~env (server : Server.t) =
   let tls_server_config = match config.tls with
     | Some tls ->
         let cfg = Tls_config.load_http1 tls in
-        Eio.traceln "🔒 gRPC-Web TLS enabled (ALPN: http/1.1)";
+        Log.info "🔒 gRPC-Web TLS enabled (ALPN: http/1.1)";
         Some cfg
     | None -> None
   in
 
   let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true config.addr in
-  Eio.traceln "gRPC-Web server on %a" Eio.Net.Sockaddr.pp config.addr;
+  Log.info "gRPC-Web server on %a" Eio.Net.Sockaddr.pp config.addr;
 
   let handle_connection flow _addr =
     try
@@ -463,13 +463,13 @@ let serve ?config ~sw ~env (server : Server.t) =
         let headers = ("content-length", "0") :: headers in
         send_plain ~flow ~status:400 ~reason:"Bad Request"
           ~headers ~body:"";
-        Eio.traceln "gRPC-Web parse error: %s" msg
+        Log.warn "gRPC-Web parse error: %s" msg
     | exn ->
         let headers = cors_headers config.cors in
         let headers = ("content-length", "0") :: headers in
         send_plain ~flow ~status:500 ~reason:"Internal Server Error"
           ~headers ~body:"";
-        Eio.traceln "gRPC-Web error: %s" (Printexc.to_string exn)
+        Log.error "gRPC-Web error: %s" (Printexc.to_string exn)
   in
 
   let accept_plain sock addr = handle_connection sock addr in
@@ -484,6 +484,6 @@ let serve ?config ~sw ~env (server : Server.t) =
 
   while true do
     Eio.Net.accept_fork socket ~sw
-      ~on_error:(fun exn -> Eio.traceln "gRPC-Web connection error: %s" (Printexc.to_string exn))
+      ~on_error:(fun exn -> Log.error "gRPC-Web connection error: %s" (Printexc.to_string exn))
       accept_tls
   done

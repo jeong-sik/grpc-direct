@@ -15,10 +15,10 @@
 
 (** Serving status as defined by gRPC Health Checking Protocol *)
 type status =
-  | Unknown          (** 0 - Status unknown *)
-  | Serving          (** 1 - Service is healthy and serving *)
-  | Not_serving      (** 2 - Service is not serving (unhealthy) *)
-  | Service_unknown  (** 3 - Service name not recognized *)
+  | Unknown (** 0 - Status unknown *)
+  | Serving (** 1 - Service is healthy and serving *)
+  | Not_serving (** 2 - Service is not serving (unhealthy) *)
+  | Service_unknown (** 3 - Service name not recognized *)
 
 (** Health service state (abstract) *)
 type t

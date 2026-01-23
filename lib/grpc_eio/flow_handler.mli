@@ -48,15 +48,19 @@ end
     @param sw Eio switch for resource management
     @param client_addr Client address for logging
     @param flow Any two-way flow (socket or TLS-wrapped) *)
-val create_server_handler :
-  ?config:H2.Config.t ->
-  request_handler:(Eio.Net.Sockaddr.stream -> H2.Reqd.t -> unit) ->
-  error_handler:(Eio.Net.Sockaddr.stream ->
-    ?request:H2.Request.t -> H2.Server_connection.error -> (H2.Headers.t -> H2.Body.Writer.t) -> unit) ->
-  sw:Eio.Switch.t ->
-  Eio.Net.Sockaddr.stream ->
-  _ Eio.Flow.two_way ->
-  unit
+val create_server_handler
+  :  ?config:H2.Config.t
+  -> request_handler:(Eio.Net.Sockaddr.stream -> H2.Reqd.t -> unit)
+  -> error_handler:
+       (Eio.Net.Sockaddr.stream
+        -> ?request:H2.Request.t
+        -> H2.Server_connection.error
+        -> (H2.Headers.t -> H2.Body.Writer.t)
+        -> unit)
+  -> sw:Eio.Switch.t
+  -> Eio.Net.Sockaddr.stream
+  -> _ Eio.Flow.two_way
+  -> unit
 
 (** {1 Client} *)
 
@@ -81,9 +85,9 @@ val create_server_handler :
     @param error_handler Handler for connection errors
     @param flow Any two-way flow (socket or TLS-wrapped)
     @return H2 client connection that can be used for requests *)
-val create_client_connection :
-  ?config:H2.Config.t ->
-  sw:Eio.Switch.t ->
-  error_handler:(H2.Client_connection.error -> unit) ->
-  _ Eio.Flow.two_way ->
-  H2.Client_connection.t
+val create_client_connection
+  :  ?config:H2.Config.t
+  -> sw:Eio.Switch.t
+  -> error_handler:(H2.Client_connection.error -> unit)
+  -> _ Eio.Flow.two_way
+  -> H2.Client_connection.t

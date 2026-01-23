@@ -69,11 +69,7 @@
     @param server Configured gRPC server
 
     @raise Invalid_argument if domains < 0 *)
-val serve_multi :
-  ?domains:int ->
-  env:Eio_unix.Stdenv.base ->
-  Server.t ->
-  unit
+val serve_multi : ?domains:int -> env:Eio_unix.Stdenv.base -> Server.t -> unit
 
 (** Shutdown all domains gracefully.
 

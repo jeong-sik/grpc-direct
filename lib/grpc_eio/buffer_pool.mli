@@ -39,7 +39,6 @@ val stats : unit -> (int * int * int * float) array
 (** Print formatted pool statistics to stdout *)
 val print_stats : unit -> unit
 
-
 (** {1 Zero-Copy Slice API} *)
 
 (** A view into a buffer without copying.
@@ -66,14 +65,13 @@ val slice_release : slice -> unit
 val slice_length : slice -> int
 
 (** Blit from Bigstringaf into slice (for H2 integration) *)
-val slice_blit_from_bigstring :
-  src:Bigstringaf.t ->
-  src_off:int ->
-  slice ->
-  dst_off:int ->
-  len:int ->
-  unit
-
+val slice_blit_from_bigstring
+  :  src:Bigstringaf.t
+  -> src_off:int
+  -> slice
+  -> dst_off:int
+  -> len:int
+  -> unit
 
 (** {1 Pooled Message Builder} *)
 

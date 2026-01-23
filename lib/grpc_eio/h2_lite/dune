@@ -2,14 +2,26 @@
  (name h2_lite)
  (public_name grpc-direct.h2_lite)
  (libraries cstruct eio)
-(modules buffer_pool frame hpack stream flow_control priority_scheduler connection grpc_message h2_lite)
- (ocamlopt_flags (:standard -O3)))
+ (modules
+  log
+  buffer_pool
+  frame
+  hpack
+  stream
+  flow_control
+  priority_scheduler
+  connection
+  grpc_message
+  h2_lite)
+ (ocamlopt_flags
+  (:standard -O3)))
 
 (executable
  (name echo_server)
  (modules echo_server)
  (libraries h2_lite eio_main)
- (ocamlopt_flags (:standard -O3)))
+ (ocamlopt_flags
+  (:standard -O3)))
 
 (executable
  (name echo_server_multi)
@@ -20,7 +32,8 @@
  (name echo_server_turbo)
  (modules echo_server_turbo)
  (libraries h2_lite eio_main)
- (ocamlopt_flags (:standard -O3)))
+ (ocamlopt_flags
+  (:standard -O3)))
 
 (executable
  (name test_continuation)

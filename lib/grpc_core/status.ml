@@ -21,11 +21,11 @@ type code =
   | Data_loss
   | Unauthenticated
 
-type t = {
-  code : code;
-  message : string;
-  details : string option;
-}
+type t =
+  { code : code
+  ; message : string
+  ; details : string option
+  }
 
 let code_to_int = function
   | OK -> 0
@@ -45,6 +45,7 @@ let code_to_int = function
   | Unavailable -> 14
   | Data_loss -> 15
   | Unauthenticated -> 16
+;;
 
 let int_to_code = function
   | 0 -> OK
@@ -65,19 +66,18 @@ let int_to_code = function
   | 15 -> Data_loss
   | 16 -> Unauthenticated
   | _ -> Unknown
+;;
 
 (** Alias for consistency *)
 let code_of_int = int_to_code
 
 let ok = { code = OK; message = ""; details = None }
-
-let error ?(details = None) code message =
-  { code; message; details }
-
+let error ?(details = None) code message = { code; message; details }
 let is_ok t = t.code = OK
 
 let to_string t =
-  let code_str = match t.code with
+  let code_str =
+    match t.code with
     | OK -> "OK"
     | Cancelled -> "CANCELLED"
     | Unknown -> "UNKNOWN"
@@ -97,3 +97,4 @@ let to_string t =
     | Unauthenticated -> "UNAUTHENTICATED"
   in
   Printf.sprintf "%s: %s" code_str t.message
+;;

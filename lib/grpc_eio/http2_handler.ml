@@ -343,7 +343,7 @@ let handle_bidi_streaming
       match Message.encode ~codec:response_codec msg with
       | Error e ->
           (* Log encoding error but continue - don't crash the stream *)
-          Eio.traceln "gRPC encode error: %s" e
+          Log.error "gRPC encode error: %s" e
       | Ok encoded ->
           match !body_writer with
           | Some bw ->

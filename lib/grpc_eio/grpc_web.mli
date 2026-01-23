@@ -8,8 +8,8 @@
 
 (** gRPC-Web transport mode *)
 type mode =
-  | Binary  (** application/grpc-web(+proto) *)
-  | Text    (** application/grpc-web-text(+proto), base64-encoded *)
+  | Binary (** application/grpc-web(+proto) *)
+  | Text (** application/grpc-web-text(+proto), base64-encoded *)
 
 (** gRPC-Web frame type.
     For Message, the payload is a full gRPC frame (compressed flag + length + message). *)
@@ -51,11 +51,13 @@ module Base64 : sig
 
   module Stream : sig
     type enc_state
+
     val enc_init : enc_state
-    val encode_chunk : enc_state -> string -> (string * enc_state)
+    val encode_chunk : enc_state -> string -> string * enc_state
     val encode_final : enc_state -> string
 
     type dec_state
+
     val dec_init : dec_state
     val decode_chunk : dec_state -> string -> (string * dec_state, string) result
     val decode_final : dec_state -> (string, string) result

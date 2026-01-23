@@ -22,10 +22,10 @@
     Full FileDescriptor support would require proto file registration. *)
 
 (** Service info for reflection *)
-type service_info = {
-  name : string;
-  methods : string list;
-}
+type service_info =
+  { name : string
+  ; methods : string list
+  }
 
 (** Reflection request types *)
 type request =
@@ -46,15 +46,15 @@ type response =
 (** Wire format constants *)
 module Wire = struct
   (* Field numbers for ServerReflectionRequest *)
-  let [@warning "-32"] _req_host = 1
+  let[@warning "-32"] _req_host = 1
   let req_file_by_filename = 3
   let req_file_containing_symbol = 4
   let req_list_services = 7
 
   (* Field numbers for ServerReflectionResponse *)
-  let [@warning "-32"] _resp_valid_host = 1
-  let [@warning "-32"] _resp_original_request = 2
-  let [@warning "-32"] _resp_file_descriptor_response = 4
+  let[@warning "-32"] _resp_valid_host = 1
+  let[@warning "-32"] _resp_original_request = 2
+  let[@warning "-32"] _resp_file_descriptor_response = 4
   let resp_list_services_response = 6
   let resp_error_response = 7
 
@@ -78,45 +78,50 @@ let decode_varint (bytes : string) (pos : int ref) : int =
     incr pos;
     result := !result lor ((byte land 0x7f) lsl !shift);
     shift := !shift + 7;
-    if byte land 0x80 = 0 then
-      raise Exit
+    if byte land 0x80 = 0 then raise Exit
   done;
   !result
+;;
 
-let [@warning "-32"] _decode_varint_safe bytes pos =
-  try decode_varint bytes pos
-  with Exit -> 0
+let[@warning "-32"] _decode_varint_safe bytes pos =
+  try decode_varint bytes pos with
+  | Exit -> 0
+;;
 
 (** Encode a varint to bytes *)
 let encode_varint (n : int) : string =
-  if n = 0 then "\x00"
-  else begin
+  if n = 0
+  then "\x00"
+  else (
     let buf = Buffer.create 10 in
     let n = ref n in
     while !n > 0 do
       let byte = !n land 0x7f in
       n := !n lsr 7;
-      if !n > 0 then
-        Buffer.add_char buf (Char.chr (byte lor 0x80))
-      else
-        Buffer.add_char buf (Char.chr byte)
+      if !n > 0
+      then Buffer.add_char buf (Char.chr (byte lor 0x80))
+      else Buffer.add_char buf (Char.chr byte)
     done;
-    Buffer.contents buf
-  end
+    Buffer.contents buf)
+;;
 
 (** Encode a length-delimited field *)
 let encode_length_delimited (field_num : int) (data : string) : string =
-  let tag = (field_num lsl 3) lor 2 in  (* wire type 2 = length-delimited *)
+  let tag = (field_num lsl 3) lor 2 in
+  (* wire type 2 = length-delimited *)
   encode_varint tag ^ encode_varint (String.length data) ^ data
+;;
 
 (** Encode a string field *)
 let encode_string_field (field_num : int) (s : string) : string =
   encode_length_delimited field_num s
+;;
 
 (** Parse ServerReflectionRequest *)
 let parse_request (data : string) : request =
-  if String.length data = 0 then ListServices
-  else begin
+  if String.length data = 0
+  then ListServices
+  else (
     let pos = ref 0 in
     let result = ref Unknown in
     while !pos < String.length data do
@@ -125,54 +130,61 @@ let parse_request (data : string) : request =
         let field_num = tag lsr 3 in
         let wire_type = tag land 7 in
         match wire_type with
-        | 2 -> (* length-delimited *)
-            let len = decode_varint data pos in
-            let value = String.sub data !pos len in
-            pos := !pos + len;
-            (match field_num with
-             | n when n = Wire.req_file_by_filename ->
-                 result := FileByFilename value
-             | n when n = Wire.req_file_containing_symbol ->
-                 result := FileContainingSymbol value
-             | n when n = Wire.req_list_services ->
-                 result := ListServices
-             | _ -> ())
-        | 0 -> (* varint *)
-            let _ = decode_varint data pos in ()
+        | 2 ->
+          (* length-delimited *)
+          let len = decode_varint data pos in
+          let value = String.sub data !pos len in
+          pos := !pos + len;
+          (match field_num with
+           | n when n = Wire.req_file_by_filename -> result := FileByFilename value
+           | n when n = Wire.req_file_containing_symbol ->
+             result := FileContainingSymbol value
+           | n when n = Wire.req_list_services -> result := ListServices
+           | _ -> ())
+        | 0 ->
+          (* varint *)
+          let _ = decode_varint data pos in
+          ()
         | _ ->
-            (* Skip unknown wire types *)
-            pos := String.length data
-      with _ ->
-        pos := String.length data
+          (* Skip unknown wire types *)
+          pos := String.length data
+      with
+      | _ -> pos := String.length data
     done;
-    !result
-  end
+    !result)
+;;
 
 (** Encode ListServicesResponse *)
 let encode_list_services_response (services : string list) : string =
   let service_msgs =
-    List.map (fun name ->
-      (* ServiceResponse message: field 1 = name *)
-      encode_string_field Wire.service_name name
-    ) services
+    List.map
+      (fun name ->
+         (* ServiceResponse message: field 1 = name *)
+         encode_string_field Wire.service_name name)
+      services
   in
   (* ListServiceResponse: repeated field 1 = service *)
   let list_response =
-    String.concat "" (List.map (fun msg ->
-      encode_length_delimited Wire.list_service_service msg
-    ) service_msgs)
+    String.concat
+      ""
+      (List.map
+         (fun msg -> encode_length_delimited Wire.list_service_service msg)
+         service_msgs)
   in
   (* ServerReflectionResponse: field 6 = list_services_response *)
   encode_length_delimited Wire.resp_list_services_response list_response
+;;
 
 (** Encode ErrorResponse *)
 let encode_error_response (code : int) (message : string) : string =
   let error_msg =
-    encode_varint ((Wire.error_code lsl 3) lor 0) ^  (* varint field *)
-    encode_varint code ^
-    encode_string_field Wire.error_message message
+    encode_varint ((Wire.error_code lsl 3) lor 0)
+    (* varint field *)
+    ^ encode_varint code
+    ^ encode_string_field Wire.error_message message
   in
   encode_length_delimited Wire.resp_error_response error_msg
+;;
 
 (** Get service info from server *)
 let get_service_info (server : Server.t) (symbol : string) : service_info option =
@@ -184,13 +196,14 @@ let get_service_info (server : Server.t) (symbol : string) : service_info option
   in
   (* Try to find the service *)
   let services = Server.list_services server in
-  if List.mem service_name services then
+  if List.mem service_name services
+  then
     (* For now, just return the service name without methods *)
     Some { name = service_name; methods = [] }
-  else if List.exists (fun s -> String.equal s symbol) services then
-    Some { name = symbol; methods = [] }
-  else
-    None
+  else if List.exists (fun s -> String.equal s symbol) services
+  then Some { name = symbol; methods = [] }
+  else None
+;;
 
 (** Create the ServerReflection service.
 
@@ -204,22 +217,22 @@ let to_service (server_ref : Server.t ref) : Service.t =
     let server = !server_ref in
     let services = Server.list_services server in
     match parse_request request_bytes with
-    | ListServices ->
-        encode_list_services_response services
+    | ListServices -> encode_list_services_response services
     | FileContainingSymbol symbol ->
-        (match get_service_info server symbol with
-         | Some _info ->
-             (* Return service list as we don't have FileDescriptor *)
-             encode_list_services_response [symbol]
-         | None ->
-             encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
+      (match get_service_info server symbol with
+       | Some _info ->
+         (* Return service list as we don't have FileDescriptor *)
+         encode_list_services_response [ symbol ]
+       | None -> encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
     | FileByFilename filename ->
-        encode_error_response 5 (Printf.sprintf "FileDescriptor not available for: %s" filename)
-    | Unknown ->
-        encode_error_response 3 "Unknown request type"
+      encode_error_response
+        5
+        (Printf.sprintf "FileDescriptor not available for: %s" filename)
+    | Unknown -> encode_error_response 3 "Unknown request type"
   in
   Service.create "grpc.reflection.v1.ServerReflection"
   |> Service.add_unary "ServerReflectionInfo" handle_reflection
+;;
 
 (** Helper to create server with reflection enabled.
 
@@ -237,11 +250,13 @@ let create_server_with_reflection ?config () : Server.t =
   let server = Server.add_service reflection_service server in
   server_ref := server;
   server
+;;
 
 (** Check if a server has reflection enabled *)
 let is_enabled (server : Server.t) : bool =
   let services = Server.list_services server in
   List.mem "grpc.reflection.v1.ServerReflection" services
+;;
 
 (** Reflection service name constant *)
 let service_name = "grpc.reflection.v1.ServerReflection"
