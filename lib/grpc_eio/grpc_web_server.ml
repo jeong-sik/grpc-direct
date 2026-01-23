@@ -380,8 +380,17 @@ let handle_grpc_web ~sw:_ ~clock ~server ~config ~flow (req : Http1.request) =
                                      in
                                      (match response with
                                       | Ok resp_body ->
-                                          send_unary_response ~flow ~cors:config.cors ~mode ~encodings
-                                            ~resp_body ~trailers:[] ~codec:response_codec
+                                          (match Grpc_core.Message.encode ~codec:response_codec resp_body with
+                                           | Ok framed ->
+                                               send_unary_response ~flow ~cors:config.cors ~mode ~encodings
+                                                 ~resp_body:framed ~trailers:[] ~codec:response_codec
+                                           | Error e ->
+                                               let status = Grpc_core.Status.{
+                                                 code = Internal;
+                                                 message = e;
+                                                 details = None;
+                                               } in
+                                               send_grpc_web_error ~flow ~cors:config.cors ~mode ~encodings status)
                                       | Error status ->
                                           send_grpc_web_error ~flow ~cors:config.cors ~mode ~encodings status)
                                  | _ ->
