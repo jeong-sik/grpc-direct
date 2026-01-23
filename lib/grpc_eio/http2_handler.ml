@@ -8,24 +8,26 @@ open Grpc_core
 (** Percent-encode a string for grpc-message header (RFC 3986) *)
 let percent_encode s =
   let buf = Buffer.create (String.length s * 3) in
-  String.iter (fun c ->
-    let code = Char.code c in
-    if (code >= 0x20 && code <= 0x7E && c <> '%') then
-      Buffer.add_char buf c
-    else
-      Buffer.add_string buf (Printf.sprintf "%%%02X" code)
-  ) s;
+  String.iter
+    (fun c ->
+       let code = Char.code c in
+       if code >= 0x20 && code <= 0x7E && c <> '%'
+       then Buffer.add_char buf c
+       else Buffer.add_string buf (Printf.sprintf "%%%02X" code))
+    s;
   Buffer.contents buf
+;;
 
 let deadline_status =
-  Grpc_core.Status.{ code = Deadline_exceeded; message = "Deadline exceeded"; details = None }
+  Grpc_core.Status.
+    { code = Deadline_exceeded; message = "Deadline exceeded"; details = None }
+;;
 
 let schedule_trailers_safe ~reqd trailers =
   let open H2 in
-  try
-    Reqd.schedule_trailers reqd trailers
-  with
+  try Reqd.schedule_trailers reqd trailers with
   | Failure msg when String.starts_with ~prefix:"h2.Reqd.schedule_trailers" msg -> ()
+;;
 
 let respond_with_streaming_safe ~reqd response =
   let open H2 in
@@ -33,235 +35,253 @@ let respond_with_streaming_safe ~reqd response =
     Some (Reqd.respond_with_streaming ~flush_headers_immediately:true reqd response)
   with
   | Assert_failure _ -> None
-  | Failure msg when String.starts_with ~prefix:"h2.Reqd.respond_with_streaming" msg -> None
+  | Failure msg when String.starts_with ~prefix:"h2.Reqd.respond_with_streaming" msg ->
+    None
+;;
 
 let schedule_status_trailers ~reqd status =
   let open H2 in
   let trailers =
-    [ "grpc-status", string_of_int (Grpc_core.Status.code_to_int status.Grpc_core.Status.code)
+    [ ( "grpc-status"
+      , string_of_int (Grpc_core.Status.code_to_int status.Grpc_core.Status.code) )
     ; "grpc-message", percent_encode status.Grpc_core.Status.message
     ]
   in
   schedule_trailers_safe ~reqd (Headers.of_list trailers)
+;;
 
 let start_deadline_timer ~sw ~clock ~timeout ~on_timeout =
   match timeout with
   | None -> ()
   | Some seconds ->
-      Eio.Fiber.fork ~sw (fun () ->
-        Eio.Time.sleep clock seconds;
-        on_timeout ())
+    Eio.Fiber.fork ~sw (fun () ->
+      Eio.Time.sleep clock seconds;
+      on_timeout ())
+;;
 
 (** Parse gRPC path: /package.Service/Method -> (service_name, method_name) *)
 let parse_path (path : string) : (string * string) option =
   match String.split_on_char '/' path with
-  | [""; service_name; method_name] -> Some (service_name, method_name)
+  | [ ""; service_name; method_name ] -> Some (service_name, method_name)
   | _ -> None
+;;
 
 (** Send error response with trailers *)
 let send_error ~reqd ~encodings (status : Grpc_core.Status.t) =
   let open H2 in
-  let headers = Headers.of_list [
-    "content-type", "application/grpc+proto";
-    "grpc-accept-encoding", encodings;
-  ] in
+  let headers =
+    Headers.of_list
+      [ "content-type", "application/grpc+proto"; "grpc-accept-encoding", encodings ]
+  in
   let response = Response.create ~headers `OK in
   match respond_with_streaming_safe ~reqd response with
   | None -> ()
   | Some body ->
-      let trailers = Headers.of_list [
-        "grpc-status", string_of_int (Grpc_core.Status.code_to_int status.Grpc_core.Status.code);
-        "grpc-message", percent_encode status.Grpc_core.Status.message;
-      ] in
-      schedule_trailers_safe ~reqd trailers;
-      Body.Writer.close body
+    let trailers =
+      Headers.of_list
+        [ ( "grpc-status"
+          , string_of_int (Grpc_core.Status.code_to_int status.Grpc_core.Status.code) )
+        ; "grpc-message", percent_encode status.Grpc_core.Status.message
+        ]
+    in
+    schedule_trailers_safe ~reqd trailers;
+    Body.Writer.close body
+;;
 
 (** Send success response with body and trailers *)
 let send_response ~reqd ~encodings ~codec ~body:response_body ~trailers =
   let open H2 in
-  let base_headers = [
-    "content-type", "application/grpc+proto";
-    "grpc-accept-encoding", encodings;
-  ] in
+  let base_headers =
+    [ "content-type", "application/grpc+proto"; "grpc-accept-encoding", encodings ]
+  in
   let headers =
-    if Codec.is_identity codec then Headers.of_list base_headers
+    if Codec.is_identity codec
+    then Headers.of_list base_headers
     else Headers.of_list (("grpc-encoding", codec.Codec.name) :: base_headers)
   in
   let response = Response.create ~headers `OK in
   match respond_with_streaming_safe ~reqd response with
   | None -> ()
   | Some body ->
-      Body.Writer.write_string body response_body;
-      schedule_trailers_safe ~reqd (Headers.of_list trailers);
-      Body.Writer.flush body (function
-        | `Written -> Body.Writer.close body
-        | `Closed -> ())
+    Body.Writer.write_string body response_body;
+    schedule_trailers_safe ~reqd (Headers.of_list trailers);
+    Body.Writer.flush body (function
+      | `Written -> Body.Writer.close body
+      | `Closed -> ())
+;;
 
 (** Handle server streaming RPC *)
 let handle_server_streaming
-    ~sw
-    ~clock
-    ~timeout
-    ~reqd
-    ~response_codec
-    ~handler
-    ~request_data
-    ~encodings
-    ~method_:_
-    ~metrics:_ =
+      ~sw
+      ~clock
+      ~timeout
+      ~reqd
+      ~response_codec
+      ~handler
+      ~request_data
+      ~encodings
+      ~method_:_
+      ~metrics:_
+  =
   let open H2 in
-  let base_headers = [
-    "content-type", "application/grpc+proto";
-    "grpc-accept-encoding", encodings;
-  ] in
+  let base_headers =
+    [ "content-type", "application/grpc+proto"; "grpc-accept-encoding", encodings ]
+  in
   let headers =
-    if Codec.is_identity response_codec then Headers.of_list base_headers
+    if Codec.is_identity response_codec
+    then Headers.of_list base_headers
     else Headers.of_list (("grpc-encoding", response_codec.Codec.name) :: base_headers)
   in
   let response = Response.create ~headers `OK in
   let body_writer = respond_with_streaming_safe ~reqd response in
-
   let finished = ref false in
   let done_promise, done_resolver = Eio.Promise.create () in
-
   let body_writer_opt =
     match body_writer with
     | None ->
-        finished := true;
-        Eio.Promise.resolve done_resolver ();
-        None
+      finished := true;
+      Eio.Promise.resolve done_resolver ();
+      None
     | Some bw -> Some bw
   in
-
   let finish_ok () =
-    if not !finished then begin
+    if not !finished
+    then (
       finished := true;
-      schedule_trailers_safe ~reqd (Headers.of_list ["grpc-status", "0"]);
+      schedule_trailers_safe ~reqd (Headers.of_list [ "grpc-status", "0" ]);
       Option.iter Body.Writer.close body_writer_opt;
-      Eio.Promise.resolve done_resolver ()
-    end
+      Eio.Promise.resolve done_resolver ())
   in
-
   let finish_error (status : Grpc_core.Status.t) =
-    if not !finished then begin
+    if not !finished
+    then (
       finished := true;
       schedule_status_trailers ~reqd status;
       Option.iter Body.Writer.close body_writer_opt;
-      Eio.Promise.resolve done_resolver ()
-    end
+      Eio.Promise.resolve done_resolver ())
   in
-
-  let on_timeout () =
-    finish_error deadline_status
-  in
+  let on_timeout () = finish_error deadline_status in
   start_deadline_timer ~sw ~clock ~timeout ~on_timeout;
-
   let response_stream = handler request_data in
   let rec write_responses () =
-    if !finished then ()
-    else
-      (try
-         match Eio.Fiber.first
-           (fun () -> `Msg (Grpc_stream.take response_stream))
-           (fun () -> Eio.Promise.await done_promise; `Done)
-         with
-         | `Msg msg ->
-             (match Message.encode ~codec:response_codec msg with
-              | Ok encoded ->
-                  (match body_writer_opt with
-                   | None -> finish_ok ()
-                   | Some bw ->
-                       Body.Writer.write_string bw encoded;
-                       Body.Writer.flush bw (function
-                         | `Written -> write_responses ()
-                         | `Closed -> finish_ok ()))
-              | Error e ->
-                  finish_error Grpc_core.Status.{ code = Internal; message = e; details = None })
-         | `Done -> ()
-       with
-       | End_of_file -> finish_ok ())
+    if !finished
+    then ()
+    else (
+      try
+        match
+          Eio.Fiber.first
+            (fun () -> `Msg (Grpc_stream.take response_stream))
+            (fun () ->
+               Eio.Promise.await done_promise;
+               `Done)
+        with
+        | `Msg msg ->
+          (match Message.encode ~codec:response_codec msg with
+           | Ok encoded ->
+             (match body_writer_opt with
+              | None -> finish_ok ()
+              | Some bw ->
+                Body.Writer.write_string bw encoded;
+                Body.Writer.flush bw (function
+                  | `Written -> write_responses ()
+                  | `Closed -> finish_ok ()))
+           | Error e ->
+             finish_error
+               Grpc_core.Status.{ code = Internal; message = e; details = None })
+        | `Done -> ()
+      with
+      | End_of_file -> finish_ok ())
   in
   write_responses ()
+;;
 
 (** Handle client streaming RPC *)
 let handle_client_streaming
-    ~sw
-    ~clock
-    ~timeout
-    ~reqd
-    ~request_codec
-    ~response_codec
-    ~handler
-    ~encodings
-    ~method_:_
-    ~metrics:_ =
+      ~sw
+      ~clock
+      ~timeout
+      ~reqd
+      ~request_codec
+      ~response_codec
+      ~handler
+      ~encodings
+      ~method_:_
+      ~metrics:_
+  =
   let open H2 in
   let request_stream = Grpc_stream.create 64 in
   let body = Reqd.request_body reqd in
   let buffer = ref "" in
   let finished = ref false in
-
   let respond_once f =
-    if not !finished then begin
+    if not !finished
+    then (
       finished := true;
-      f ()
-    end
+      f ())
   in
-
   let on_timeout () =
     respond_once (fun () ->
       Body.Reader.close body;
       send_error ~reqd ~encodings deadline_status)
   in
   start_deadline_timer ~sw ~clock ~timeout ~on_timeout;
-
   let handle_extract_error err =
-    let status = match err with
+    let status =
+      match err with
       | Message.Oversized len ->
-          Grpc_core.Status.{ code = Resource_exhausted;
-            message = Printf.sprintf "Message too large: %d bytes" len; details = None }
+        Grpc_core.Status.
+          { code = Resource_exhausted
+          ; message = Printf.sprintf "Message too large: %d bytes" len
+          ; details = None
+          }
       | Message.Decode_error msg ->
-          Grpc_core.Status.{ code = Internal; message = msg; details = None }
+        Grpc_core.Status.{ code = Internal; message = msg; details = None }
     in
     respond_once (fun () -> send_error ~reqd ~encodings status)
   in
-
   let rec read_messages () =
-    if !finished then ()
+    if !finished
+    then ()
     else
-    Body.Reader.schedule_read body
-      ~on_eof:(fun () ->
-        if not !finished then begin
-          match Message.extract_all ~codec:request_codec !buffer with
-          | Error err -> handle_extract_error err
-          | Ok (messages, _) ->
+      Body.Reader.schedule_read
+        body
+        ~on_eof:(fun () ->
+          if not !finished
+          then (
+            match Message.extract_all ~codec:request_codec !buffer with
+            | Error err -> handle_extract_error err
+            | Ok (messages, _) ->
               List.iter (fun msg -> Grpc_stream.add request_stream msg) messages;
               Grpc_stream.close request_stream;
               let response = handler request_stream in
               respond_once (fun () ->
                 match Message.encode ~codec:response_codec response with
                 | Ok encoded ->
-                    send_response ~reqd ~encodings ~codec:response_codec
-                      ~body:encoded ~trailers:["grpc-status", "0"]
+                  send_response
+                    ~reqd
+                    ~encodings
+                    ~codec:response_codec
+                    ~body:encoded
+                    ~trailers:[ "grpc-status", "0" ]
                 | Error e ->
-                    send_error ~reqd ~encodings Grpc_core.Status.{
-                      code = Internal; message = e; details = None })
-        end
-      )
-      ~on_read:(fun bs ~off ~len ->
-        if not !finished then begin
-          let chunk = Bigstringaf.substring bs ~off ~len in
-          buffer := !buffer ^ chunk;
-          match Message.extract_all ~codec:request_codec !buffer with
-          | Error err -> handle_extract_error err
-          | Ok (messages, remaining) ->
+                  send_error
+                    ~reqd
+                    ~encodings
+                    Grpc_core.Status.{ code = Internal; message = e; details = None })))
+        ~on_read:(fun bs ~off ~len ->
+          if not !finished
+          then (
+            let chunk = Bigstringaf.substring bs ~off ~len in
+            buffer := !buffer ^ chunk;
+            match Message.extract_all ~codec:request_codec !buffer with
+            | Error err -> handle_extract_error err
+            | Ok (messages, remaining) ->
               buffer := remaining;
               List.iter (fun msg -> Grpc_stream.add request_stream msg) messages;
-              read_messages ()
-        end
-      )
+              read_messages ()))
   in
   read_messages ()
+;;
 
 (** Handle bidirectional streaming RPC.
 
@@ -269,16 +289,17 @@ let handle_client_streaming
     Request end signals handler via request_stream close; we then wait
     for response stream completion before closing trailers. *)
 let handle_bidi_streaming
-    ~sw
-    ~clock
-    ~timeout
-    ~reqd
-    ~request_codec
-    ~response_codec
-    ~handler
-    ~encodings
-    ~method_:_
-    ~metrics:_ =
+      ~sw
+      ~clock
+      ~timeout
+      ~reqd
+      ~request_codec
+      ~response_codec
+      ~handler
+      ~encodings
+      ~method_:_
+      ~metrics:_
+  =
   let open H2 in
   let request_stream = Grpc_stream.create 64 in
   let body = Reqd.request_body reqd in
@@ -286,111 +307,107 @@ let handle_bidi_streaming
   let response_started = ref false in
   let body_writer = ref None in
   let finished = ref false in
-
   let response_stream = handler request_stream in
-
   (* Promise for writer fiber to signal drain completion *)
   let writer_done_promise, writer_done_resolver = Eio.Promise.create () in
   let signal_writer_done () =
-    if not (Eio.Promise.is_resolved writer_done_promise) then
-      Eio.Promise.resolve writer_done_resolver ()
+    if not (Eio.Promise.is_resolved writer_done_promise)
+    then Eio.Promise.resolve writer_done_resolver ()
   in
-
   let finish_with_status status =
-    if not !finished then begin
+    if not !finished
+    then (
       finished := true;
       Body.Reader.close body;
       Grpc_stream.close request_stream;
       Grpc_stream.close response_stream;
       Eio.Promise.await writer_done_promise;
-      if !response_started then begin
+      if !response_started
+      then (
         schedule_status_trailers ~reqd status;
-        Option.iter Body.Writer.close !body_writer
-      end else
-        send_error ~reqd ~encodings status
-    end
+        Option.iter Body.Writer.close !body_writer)
+      else send_error ~reqd ~encodings status)
   in
-
   let on_timeout () = finish_with_status deadline_status in
   start_deadline_timer ~sw ~clock ~timeout ~on_timeout;
-
   let ensure_response_started () =
-    if not !response_started then begin
+    if not !response_started
+    then (
       response_started := true;
-      let base_headers = [
-        "content-type", "application/grpc+proto";
-        "grpc-accept-encoding", encodings;
-      ] in
+      let base_headers =
+        [ "content-type", "application/grpc+proto"; "grpc-accept-encoding", encodings ]
+      in
       let headers =
-        if Codec.is_identity response_codec then Headers.of_list base_headers
+        if Codec.is_identity response_codec
+        then Headers.of_list base_headers
         else Headers.of_list (("grpc-encoding", response_codec.Codec.name) :: base_headers)
       in
       let resp = Response.create ~headers `OK in
       match respond_with_streaming_safe ~reqd resp with
       | None ->
-          finished := true;
-          Grpc_stream.close response_stream;
-          signal_writer_done ()
-      | Some bw ->
-          body_writer := Some bw
-    end
+        finished := true;
+        Grpc_stream.close response_stream;
+        signal_writer_done ()
+      | Some bw -> body_writer := Some bw)
   in
-
   (* Writer fiber: blocks on response stream and exits on End_of_file. *)
   Eio.Fiber.fork ~sw (fun () ->
     let write_message msg =
       ensure_response_started ();
       match Message.encode ~codec:response_codec msg with
       | Error e ->
-          (* Log encoding error but continue - don't crash the stream *)
-          Eio.traceln "gRPC encode error: %s" e
+        (* Log encoding error but continue - don't crash the stream *)
+        Log.error "gRPC encode error: %s" e
       | Ok encoded ->
-          match !body_writer with
-          | Some bw ->
-              Body.Writer.write_string bw encoded;
-              Body.Writer.flush bw (function
-                | `Written -> ()
-                | `Closed ->
-                    finished := true;
-                    Grpc_stream.close response_stream;
-                    signal_writer_done ())
-          | None -> ()
+        (match !body_writer with
+         | Some bw ->
+           Body.Writer.write_string bw encoded;
+           Body.Writer.flush bw (function
+             | `Written -> ()
+             | `Closed ->
+               finished := true;
+               Grpc_stream.close response_stream;
+               signal_writer_done ())
+         | None -> ())
     in
     let rec write_responses () =
-      if !finished then
-        signal_writer_done ()
-      else
+      if !finished
+      then signal_writer_done ()
+      else (
         match Grpc_stream.take response_stream with
         | msg ->
-            write_message msg;
-            write_responses ()
-        | exception End_of_file ->
-            signal_writer_done ()
+          write_message msg;
+          write_responses ()
+        | exception End_of_file -> signal_writer_done ())
     in
-    write_responses ()
-  );
-
+    write_responses ());
   let handle_extract_error err =
-    let status = match err with
+    let status =
+      match err with
       | Message.Oversized len ->
-          Grpc_core.Status.{ code = Resource_exhausted;
-            message = Printf.sprintf "Message too large: %d bytes" len; details = None }
+        Grpc_core.Status.
+          { code = Resource_exhausted
+          ; message = Printf.sprintf "Message too large: %d bytes" len
+          ; details = None
+          }
       | Message.Decode_error msg ->
-          Grpc_core.Status.{ code = Internal; message = msg; details = None }
+        Grpc_core.Status.{ code = Internal; message = msg; details = None }
     in
     (* Signal writer to stop, then send error *)
     finish_with_status status
   in
-
   let rec read_messages () =
-    if !finished then ()
+    if !finished
+    then ()
     else
-    Body.Reader.schedule_read body
-      ~on_eof:(fun () ->
-        if not !finished then
-          match Message.extract_all ~codec:request_codec !buffer with
-          | Error err -> handle_extract_error err
-          | Ok (messages, _) ->
+      Body.Reader.schedule_read
+        body
+        ~on_eof:(fun () ->
+          if not !finished
+          then (
+            match Message.extract_all ~codec:request_codec !buffer with
+            | Error err -> handle_extract_error err
+            | Ok (messages, _) ->
               List.iter (fun msg -> Grpc_stream.add request_stream msg) messages;
               Grpc_stream.close request_stream;
               (* Wait for writer fiber to complete drain before closing body.
@@ -398,23 +415,22 @@ let handle_bidi_streaming
                  writer is still flushing buffered messages. *)
               Eio.Promise.await writer_done_promise;
               ensure_response_started ();
-              match !body_writer with
-              | Some bw ->
-                  schedule_trailers_safe ~reqd (Headers.of_list ["grpc-status", "0"]);
-                  Body.Writer.close bw
-              | None -> ()
-      )
-      ~on_read:(fun bs ~off ~len ->
-        if not !finished then begin
-          let chunk = Bigstringaf.substring bs ~off ~len in
-          buffer := !buffer ^ chunk;
-          match Message.extract_all ~codec:request_codec !buffer with
-          | Error err -> handle_extract_error err
-          | Ok (messages, remaining) ->
+              (match !body_writer with
+               | Some bw ->
+                 schedule_trailers_safe ~reqd (Headers.of_list [ "grpc-status", "0" ]);
+                 Body.Writer.close bw
+               | None -> ())))
+        ~on_read:(fun bs ~off ~len ->
+          if not !finished
+          then (
+            let chunk = Bigstringaf.substring bs ~off ~len in
+            buffer := !buffer ^ chunk;
+            match Message.extract_all ~codec:request_codec !buffer with
+            | Error err -> handle_extract_error err
+            | Ok (messages, remaining) ->
               buffer := remaining;
               List.iter (fun msg -> Grpc_stream.add request_stream msg) messages;
-              read_messages ()
-        end
-      )
+              read_messages ()))
   in
   read_messages ()
+;;

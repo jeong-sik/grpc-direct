@@ -20,34 +20,38 @@
 
 (** RPC method types *)
 type method_type =
-  | Unary           (** Single request, single response *)
+  | Unary (** Single request, single response *)
   | ClientStreaming (** Stream of requests, single response *)
   | ServerStreaming (** Single request, stream of responses *)
-  | BidiStreaming   (** Stream of requests, stream of responses *)
+  | BidiStreaming (** Stream of requests, stream of responses *)
 
 (** Method handler function types *)
 type unary_handler = string -> string
+
 type client_streaming_handler = string Grpc_stream.t -> string
 type server_streaming_handler = string -> string Grpc_stream.t
+
 (* Response stream must be closed to end the RPC. *)
 type bidi_handler = string Grpc_stream.t -> string Grpc_stream.t
 (* Response stream must be closed to end the RPC. *)
 
 (** Method definition *)
-type method_def = {
-  name : string;
-  method_type : method_type;
-  handler : [ `Unary of unary_handler
-            | `ClientStreaming of client_streaming_handler
-            | `ServerStreaming of server_streaming_handler
-            | `Bidi of bidi_handler ];
-}
+type method_def =
+  { name : string
+  ; method_type : method_type
+  ; handler :
+      [ `Unary of unary_handler
+      | `ClientStreaming of client_streaming_handler
+      | `ServerStreaming of server_streaming_handler
+      | `Bidi of bidi_handler
+      ]
+  }
 
 (** Service definition *)
-type t = {
-  name : string;  (** Full service name: package.ServiceName *)
-  methods : (string, method_def) Hashtbl.t;
-}
+type t =
+  { name : string (** Full service name: package.ServiceName *)
+  ; methods : (string, method_def) Hashtbl.t
+  }
 
 (** {1 Service Creation} *)
 
@@ -87,18 +91,20 @@ val list_methods : t -> string list
 (** Typed service builder for better ergonomics with encoder/decoder *)
 module Typed : sig
   (** Add a typed unary method with encoder/decoder *)
-  val add_unary :
-    request_decoder:(string -> 'req) ->
-    response_encoder:('res -> string) ->
-    string ->
-    ('req -> 'res) ->
-    t -> t
+  val add_unary
+    :  request_decoder:(string -> 'req)
+    -> response_encoder:('res -> string)
+    -> string
+    -> ('req -> 'res)
+    -> t
+    -> t
 
   (** Add a typed server streaming method *)
-  val add_server_streaming :
-    request_decoder:(string -> 'req) ->
-    response_encoder:('res -> string) ->
-    string ->
-    ('req -> 'res Grpc_stream.t) ->
-    t -> t
+  val add_server_streaming
+    :  request_decoder:(string -> 'req)
+    -> response_encoder:('res -> string)
+    -> string
+    -> ('req -> 'res Grpc_stream.t)
+    -> t
+    -> t
 end

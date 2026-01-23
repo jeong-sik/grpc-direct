@@ -29,17 +29,17 @@
 
 (** Client authentication mode for mTLS *)
 type client_auth =
-  | NoClientCert        (** Don't request client certificate (default TLS) *)
-  | RequestClientCert   (** Request but don't require client certificate *)
-  | RequireAndVerify    (** Require and verify client certificate (mTLS) *)
+  | NoClientCert (** Don't request client certificate (default TLS) *)
+  | RequestClientCert (** Request but don't require client certificate *)
+  | RequireAndVerify (** Require and verify client certificate (mTLS) *)
 
 (** TLS configuration *)
-type t = {
-  cert_file : string;           (** Path to PEM certificate file *)
-  key_file : string;            (** Path to PEM private key file *)
-  ca_file : string option;      (** Optional CA cert for client verification (mTLS) *)
-  client_auth : client_auth;    (** Client authentication mode *)
-}
+type t =
+  { cert_file : string (** Path to PEM certificate file *)
+  ; key_file : string (** Path to PEM private key file *)
+  ; ca_file : string option (** Optional CA cert for client verification (mTLS) *)
+  ; client_auth : client_auth (** Client authentication mode *)
+  }
 
 (** {1 Constructors} *)
 

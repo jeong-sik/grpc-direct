@@ -10,7 +10,6 @@
     @since 0.4.0
 *)
 
-
 (** {1 Power of Two Choices Load Balancer} *)
 module P2C : sig
   type 'a backend
@@ -32,7 +31,6 @@ module P2C : sig
   val stats : 'a t -> ('a * int * int * int) array
 end
 
-
 (** {1 Lock-free Ring Buffer} *)
 module RingBuffer : sig
   type 'a t
@@ -51,15 +49,14 @@ module RingBuffer : sig
   val size : 'a t -> int
 end
 
-
 (** {1 Adaptive Batching} *)
 module AdaptiveBatching : sig
-  type config = {
-    min_batch_size : int;
-    max_batch_size : int;
-    max_delay_ms : float;
-    target_latency_ms : float;
-  }
+  type config =
+    { min_batch_size : int
+    ; max_batch_size : int
+    ; max_delay_ms : float
+    ; target_latency_ms : float
+    }
 
   val default_config : config
 
@@ -77,9 +74,8 @@ module AdaptiveBatching : sig
   val flush : 'a t -> 'a list
 
   (** Stats: (current_batch_size, avg_latency, total_batches) *)
-  val stats : 'a t -> (int * float * int)
+  val stats : 'a t -> int * float * int
 end
-
 
 (** {1 Exponential Histogram} *)
 module ExpHistogram : sig
@@ -87,7 +83,6 @@ module ExpHistogram : sig
 
   val create : min_value:float -> max_value:float -> t
   val record : t -> float -> unit
-
   val percentile : t -> float -> float
   val mean : t -> float
   val p50 : t -> float
@@ -95,22 +90,23 @@ module ExpHistogram : sig
   val p95 : t -> float
   val p99 : t -> float
   val p999 : t -> float
-
   val reset : t -> unit
   val print_summary : t -> unit
 end
 
-
 (** {1 Circuit Breaker} *)
 module CircuitBreaker : sig
-  type state = Closed | Open | HalfOpen
+  type state =
+    | Closed
+    | Open
+    | HalfOpen
 
-  type config = {
-    failure_threshold : int;
-    success_threshold : int;
-    timeout_ms : float;
-    half_open_max : int;
-  }
+  type config =
+    { failure_threshold : int
+    ; success_threshold : int
+    ; timeout_ms : float
+    ; half_open_max : int
+    }
 
   val default_config : config
 
@@ -125,5 +121,5 @@ module CircuitBreaker : sig
   val record_failure : t -> unit
 
   (** Stats: (state_name, allowed, rejected, failures) *)
-  val stats : t -> (string * int * int * int)
+  val stats : t -> string * int * int * int
 end

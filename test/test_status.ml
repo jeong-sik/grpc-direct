@@ -21,6 +21,7 @@ let test_status_codes () =
   assert (code_to_int Data_loss = 15);
   assert (code_to_int Unauthenticated = 16);
   Printf.printf "  ✓ Status code values (RFC compliant): OK\n%!"
+;;
 
 let test_code_from_int () =
   let open Grpc_core.Status in
@@ -32,6 +33,7 @@ let test_code_from_int () =
   assert (code_of_int 99 = Unknown);
   assert (code_of_int (-1) = Unknown);
   Printf.printf "  ✓ Code from int: OK\n%!"
+;;
 
 let test_status_creation () =
   let open Grpc_core.Status in
@@ -40,17 +42,20 @@ let test_status_creation () =
   assert (status.message = "Resource not found");
   assert (status.details = None);
   Printf.printf "  ✓ Status creation: OK\n%!"
+;;
 
 let test_status_with_details () =
   let open Grpc_core.Status in
-  let status = {
-    code = Invalid_argument;
-    message = "Invalid field value";
-    details = Some "field 'email' must be valid email format"
-  } in
+  let status =
+    { code = Invalid_argument
+    ; message = "Invalid field value"
+    ; details = Some "field 'email' must be valid email format"
+    }
+  in
   assert (status.code = Invalid_argument);
   assert (status.details = Some "field 'email' must be valid email format");
   Printf.printf "  ✓ Status with details: OK\n%!"
+;;
 
 let test_ok_status () =
   let open Grpc_core.Status in
@@ -58,6 +63,7 @@ let test_ok_status () =
   assert (ok.message = "");
   assert (is_ok ok);
   Printf.printf "  ✓ OK status helper: OK\n%!"
+;;
 
 let test_error_helper () =
   let open Grpc_core.Status in
@@ -65,10 +71,10 @@ let test_error_helper () =
   assert (err.code = Not_found);
   assert (err.message = "User not found");
   assert (not (is_ok err));
-
   let err_with_details = error ~details:(Some "id=123") Internal "Server error" in
   assert (err_with_details.details = Some "id=123");
   Printf.printf "  ✓ Error helper function: OK\n%!"
+;;
 
 let test_to_string () =
   let open Grpc_core.Status in
@@ -76,6 +82,7 @@ let test_to_string () =
   let str = to_string status in
   assert (String.sub str 0 9 = "NOT_FOUND");
   Printf.printf "  ✓ Status to_string: OK\n%!"
+;;
 
 let test_common_error_statuses () =
   let open Grpc_core.Status in
@@ -87,14 +94,13 @@ let test_common_error_statuses () =
   let _internal = error Internal "Server error" in
   let _deadline = error Deadline_exceeded "Request timeout" in
   Printf.printf "  ✓ Common error statuses: OK\n%!"
+;;
 
 let () =
   Printf.printf "\n=== grpc-status tests ===\n\n%!";
-
   Printf.printf "📊 Status codes:\n%!";
   test_status_codes ();
   test_code_from_int ();
-
   Printf.printf "\n🏗️ Status creation:\n%!";
   test_status_creation ();
   test_status_with_details ();
@@ -102,5 +108,5 @@ let () =
   test_error_helper ();
   test_to_string ();
   test_common_error_statuses ();
-
   Printf.printf "\n=== All status tests passed! ===\n%!"
+;;

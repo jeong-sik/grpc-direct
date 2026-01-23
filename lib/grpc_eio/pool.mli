@@ -20,15 +20,15 @@
     ]} *)
 
 (** Pool configuration *)
-type config = {
-  target : string;
-  min_connections : int;
-  max_connections : int;
-  idle_timeout : float;
-  health_check_interval : float;
-  connection_timeout : float;
-  client_config : Client.config option;
-}
+type config =
+  { target : string
+  ; min_connections : int
+  ; max_connections : int
+  ; idle_timeout : float
+  ; health_check_interval : float
+  ; connection_timeout : float
+  ; client_config : Client.config option
+  }
 
 (** Default pool configuration *)
 val default_config : target:string -> config
@@ -45,16 +45,16 @@ type t
     @param health_check_interval Seconds between health checks (default: 30)
     @param connection_timeout Seconds to wait for connection (default: 5)
     @param client_config Optional client configuration *)
-val create :
-  ?min_connections:int ->
-  ?max_connections:int ->
-  ?idle_timeout:float ->
-  ?health_check_interval:float ->
-  ?connection_timeout:float ->
-  ?client_config:Client.config ->
-  target:string ->
-  unit ->
-  t
+val create
+  :  ?min_connections:int
+  -> ?max_connections:int
+  -> ?idle_timeout:float
+  -> ?health_check_interval:float
+  -> ?connection_timeout:float
+  -> ?client_config:Client.config
+  -> target:string
+  -> unit
+  -> t
 
 (** Acquire a connection from the pool.
 
@@ -76,26 +76,26 @@ val release : t -> Client.t -> unit
         Client.call_unary client ~service:"..." ~method_:"..." ~request
       )
     ]} *)
-val with_connection :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  t ->
-  (Client.t -> 'a) ->
-  'a
+val with_connection
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> t
+  -> (Client.t -> 'a)
+  -> 'a
 
 (** Close the pool and release all connections *)
 val close : t -> unit
 
 (** Pool statistics *)
-type stats = {
-  total_connections : int;
-  in_use_connections : int;
-  idle_connections : int;
-  acquired_count : int;
-  released_count : int;
-  created_count : int;
-  evicted_count : int;
-}
+type stats =
+  { total_connections : int
+  ; in_use_connections : int
+  ; idle_connections : int
+  ; acquired_count : int
+  ; released_count : int
+  ; created_count : int
+  ; evicted_count : int
+  }
 
 (** Get pool statistics *)
 val stats : t -> stats

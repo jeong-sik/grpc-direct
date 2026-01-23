@@ -30,22 +30,23 @@
 (** {1 Context} *)
 
 (** Request context passed through interceptor chain *)
-type context = {
-  method_ : string;           (** Full method name: /package.Service/Method *)
-  metadata : (string * string) list;  (** Request metadata (headers) *)
-  deadline : float option;    (** Request deadline (Unix timestamp) *)
-  extensions : (string, string) Hashtbl.t;  (** User-defined extensions *)
-}
+type context =
+  { method_ : string (** Full method name: /package.Service/Method *)
+  ; metadata : (string * string) list (** Request metadata (headers) *)
+  ; deadline : float option (** Request deadline (Unix timestamp) *)
+  ; extensions : (string, string) Hashtbl.t (** User-defined extensions *)
+  }
 
 (** Create an empty context *)
 val empty_context : method_:string -> unit -> context
 
 (** Create context with metadata *)
-val context_with_metadata :
-  method_:string ->
-  metadata:(string * string) list ->
-  ?deadline:float ->
-  unit -> context
+val context_with_metadata
+  :  method_:string
+  -> metadata:(string * string) list
+  -> ?deadline:float
+  -> unit
+  -> context
 
 (** Get extension value from context *)
 val get_extension : context -> string -> string option
@@ -62,10 +63,10 @@ val is_deadline_exceeded : context -> bool
 (** {1 Unary Interceptors} *)
 
 (** Response from an RPC call *)
-type 'a response = {
-  value : 'a;
-  trailers : (string * string) list;
-}
+type 'a response =
+  { value : 'a
+  ; trailers : (string * string) list
+  }
 
 (** Interceptor function type *)
 type 'a handler = context -> 'a response
@@ -102,11 +103,11 @@ val propagate_metadata : string list -> _ t
 (** {1 Stream Interceptors} *)
 
 (** Stream interceptor configuration *)
-type stream_config = {
-  on_message : context -> string -> string;  (** Transform each message *)
-  on_complete : context -> unit;             (** Called when stream ends *)
-  on_error : context -> exn -> unit;         (** Called on stream error *)
-}
+type stream_config =
+  { on_message : context -> string -> string (** Transform each message *)
+  ; on_complete : context -> unit (** Called when stream ends *)
+  ; on_error : context -> exn -> unit (** Called on stream error *)
+  }
 
 (** Default stream config (passthrough) *)
 val default_stream_config : stream_config
@@ -120,24 +121,25 @@ type stream_t
     @param on_message Transform each message (default: passthrough)
     @param on_complete Called when stream completes (default: noop)
     @param on_error Called on stream error (default: noop) *)
-val make_stream :
-  name:string ->
-  ?on_message:(context -> string -> string) ->
-  ?on_complete:(context -> unit) ->
-  ?on_error:(context -> exn -> unit) ->
-  unit -> stream_t
+val make_stream
+  :  name:string
+  -> ?on_message:(context -> string -> string)
+  -> ?on_complete:(context -> unit)
+  -> ?on_error:(context -> exn -> unit)
+  -> unit
+  -> stream_t
 
 (** Wrap a message stream with interceptor.
 
     Applies the interceptor's [on_message] to each message read from
     the input stream, writing transformed messages to the output stream.
     Closes [output] when [input] completes. *)
-val wrap_stream :
-  stream_t ->
-  context ->
-  input:string Grpc_stream.t ->
-  output:string Grpc_stream.t ->
-  unit
+val wrap_stream
+  :  stream_t
+  -> context
+  -> input:string Grpc_stream.t
+  -> output:string Grpc_stream.t
+  -> unit
 
 (** Chain multiple stream interceptors.
 

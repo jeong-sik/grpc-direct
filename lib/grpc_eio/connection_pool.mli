@@ -31,37 +31,36 @@
 
 (** Connection state *)
 type conn_state =
-  | Idle        (** Available for use *)
-  | Busy        (** Currently in use *)
-  | Draining    (** Finishing existing requests *)
-  | Closed      (** Connection closed *)
+  | Idle (** Available for use *)
+  | Busy (** Currently in use *)
+  | Draining (** Finishing existing requests *)
+  | Closed (** Connection closed *)
 
 (** Connection wrapper *)
-type connection = {
-  id : int;
-  target : string;
-  mutable state : conn_state;
-  mutable last_used : float;
-  mutable request_count : int;
-  mutable error_count : int;
-  mutable h2_conn : unit option;
-}
+type connection =
+  { id : int
+  ; target : string
+  ; mutable state : conn_state
+  ; mutable last_used : float
+  ; mutable request_count : int
+  ; mutable error_count : int
+  ; mutable h2_conn : unit option
+  }
 
 (** Pool configuration *)
-type config = {
-  max_connections : int;          (** Max connections per target (default: 10) *)
-  max_idle_time : float;          (** Seconds before idle eviction (default: 300) *)
-  max_requests : int;             (** Max requests per connection, 0=unlimited (default: 0) *)
-  health_check_interval : float;  (** Health check interval (default: 30) *)
-  connect_timeout : float;        (** Connection timeout (default: 10) *)
-}
+type config =
+  { max_connections : int (** Max connections per target (default: 10) *)
+  ; max_idle_time : float (** Seconds before idle eviction (default: 300) *)
+  ; max_requests : int (** Max requests per connection, 0=unlimited (default: 0) *)
+  ; health_check_interval : float (** Health check interval (default: 30) *)
+  ; connect_timeout : float (** Connection timeout (default: 10) *)
+  }
 
 (** Default pool configuration *)
 val default_config : config
 
 (** Connection pool manager *)
 type t
-
 
 (** {1 Pool Operations} *)
 
@@ -96,7 +95,6 @@ val close_all : t -> unit
 (** Print formatted statistics to stdout *)
 val print_stats : t -> unit
 
-
 (** {1 RAII-Style Usage} *)
 
 (** Use connection with automatic release.
@@ -104,8 +102,8 @@ val print_stats : t -> unit
 
     @return [Ok result] on success, [Error `Pool_exhausted] if no connection available
     @raise Reraises any exception from the function after releasing connection *)
-val with_connection :
-  t ->
-  string ->
-  (connection -> 'a) ->
-  ('a, [> `Pool_exhausted ]) result
+val with_connection
+  :  t
+  -> string
+  -> (connection -> 'a)
+  -> ('a, [> `Pool_exhausted ]) result

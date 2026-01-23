@@ -33,12 +33,12 @@
 (** {1 TLS Configuration} *)
 
 (** Client TLS configuration *)
-type tls_config = {
-  ca_file : string option;    (** CA cert for server verification (None = system CA) *)
-  cert_file : string option;  (** Client cert for mTLS *)
-  key_file : string option;   (** Client key for mTLS *)
-  verify_peer : bool;         (** Verify server certificate (default true) *)
-}
+type tls_config =
+  { ca_file : string option (** CA cert for server verification (None = system CA) *)
+  ; cert_file : string option (** Client cert for mTLS *)
+  ; key_file : string option (** Client key for mTLS *)
+  ; verify_peer : bool (** Verify server certificate (default true) *)
+  }
 
 (** Create insecure TLS config (no certificate verification).
     {b Warning:} Only use for testing! *)
@@ -55,9 +55,9 @@ val tls_mtls : ca_file:string -> cert_file:string -> key_file:string -> tls_conf
 (** Per-RPC credentials for authentication tokens.
     These credentials are attached to each RPC call. *)
 type call_credentials =
-  | BearerToken of string                    (** OAuth2 Bearer token *)
-  | CustomHeader of (string * string) list   (** Custom authentication headers *)
-  | ComputeCallCreds of (unit -> (string * string) list)  (** Dynamic credentials *)
+  | BearerToken of string (** OAuth2 Bearer token *)
+  | CustomHeader of (string * string) list (** Custom authentication headers *)
+  | ComputeCallCreds of (unit -> (string * string) list) (** Dynamic credentials *)
 
 (** Channel credentials for transport security.
     Similar to Go's [grpc.WithTransportCredentials].
@@ -84,12 +84,12 @@ type call_credentials =
         ()
     ]} *)
 type channel_credentials =
-  | Insecure                                         (** No TLS, plaintext HTTP/2 *)
-  | Tls of tls_config                                (** TLS with optional mTLS *)
-  | WithCallCredentials of {
-      transport : channel_credentials;               (** Underlying transport credentials *)
-      call_creds : call_credentials;                 (** Per-RPC credentials *)
-    }
+  | Insecure (** No TLS, plaintext HTTP/2 *)
+  | Tls of tls_config (** TLS with optional mTLS *)
+  | WithCallCredentials of
+      { transport : channel_credentials (** Underlying transport credentials *)
+      ; call_creds : call_credentials (** Per-RPC credentials *)
+      }
 
 (** Credentials module for unified authentication abstraction *)
 module Credentials : sig
@@ -100,19 +100,37 @@ module Credentials : sig
   val tls : ?ca_file:string -> unit -> channel_credentials
 
   (** Create mTLS credentials with client certificate *)
-  val mtls : ca_file:string -> cert_file:string -> key_file:string -> unit -> channel_credentials
+  val mtls
+    :  ca_file:string
+    -> cert_file:string
+    -> key_file:string
+    -> unit
+    -> channel_credentials
 
   (** Create TLS config (for use with with_token) *)
-  val tls_config : ?ca_file:string -> ?cert_file:string -> ?key_file:string -> unit -> tls_config
+  val tls_config
+    :  ?ca_file:string
+    -> ?cert_file:string
+    -> ?key_file:string
+    -> unit
+    -> tls_config
 
   (** Add call credentials (bearer token) to channel credentials *)
   val with_token : token:string -> ?tls:tls_config -> unit -> channel_credentials
 
   (** Add custom header credentials to channel credentials *)
-  val with_headers : headers:(string * string) list -> ?tls:tls_config -> unit -> channel_credentials
+  val with_headers
+    :  headers:(string * string) list
+    -> ?tls:tls_config
+    -> unit
+    -> channel_credentials
 
   (** Add dynamic credentials (computed per-call) *)
-  val with_compute_creds : f:(unit -> (string * string) list) -> ?tls:tls_config -> unit -> channel_credentials
+  val with_compute_creds
+    :  f:(unit -> (string * string) list)
+    -> ?tls:tls_config
+    -> unit
+    -> channel_credentials
 
   (** Check if credentials require TLS *)
   val requires_tls : channel_credentials -> bool
@@ -143,11 +161,11 @@ end
     ]}
 
     @see {{: https://grpc.io/docs/guides/keepalive/ } gRPC Keepalive Guide} *)
-type keepalive_config = {
-  time : float;           (** Interval between PINGs in seconds (default: 7200.0 = 2 hours) *)
-  timeout : float;        (** Time to wait for PING ACK in seconds (default: 20.0) *)
-  permit_without_calls : bool;  (** Allow PINGs when no active RPCs (default: false) *)
-}
+type keepalive_config =
+  { time : float (** Interval between PINGs in seconds (default: 7200.0 = 2 hours) *)
+  ; timeout : float (** Time to wait for PING ACK in seconds (default: 20.0) *)
+  ; permit_without_calls : bool (** Allow PINGs when no active RPCs (default: false) *)
+  }
 
 (** Default keep-alive configuration *)
 val default_keepalive : keepalive_config
@@ -155,15 +173,16 @@ val default_keepalive : keepalive_config
 (** {1 Client Configuration} *)
 
 (** Client configuration *)
-type config = {
-  target : string;  (** Target URI: http://host:port or https://host:port *)
-  codec : Grpc_core.Codec.t;  (** Preferred compression codec *)
-  timeout : float option;  (** Request timeout in seconds *)
-  metadata : (string * string) list;  (** Default metadata for all calls *)
-  tls : tls_config option;  (** TLS configuration for https:// targets (legacy) *)
-  credentials : channel_credentials option;  (** Channel credentials (preferred over tls) *)
-  keepalive : keepalive_config option;  (** Keep-alive configuration *)
-}
+type config =
+  { target : string (** Target URI: http://host:port or https://host:port *)
+  ; codec : Grpc_core.Codec.t (** Preferred compression codec *)
+  ; timeout : float option (** Request timeout in seconds *)
+  ; metadata : (string * string) list (** Default metadata for all calls *)
+  ; tls : tls_config option (** TLS configuration for https:// targets (legacy) *)
+  ; credentials : channel_credentials option
+    (** Channel credentials (preferred over tls) *)
+  ; keepalive : keepalive_config option (** Keep-alive configuration *)
+  }
 
 (** Default client configuration with identity codec and 30s timeout *)
 val default_config : target:string -> config
@@ -213,15 +232,15 @@ val with_interceptor : string Interceptor.t -> t -> t
     @param method_ Method name (e.g., "SayHello")
     @param request Request bytes (protobuf-encoded)
     @return Response bytes or error status *)
-val call_unary :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  ?deadline:float ->
-  t ->
-  service:string ->
-  method_:string ->
-  request:string ->
-  (string, Grpc_core.Status.t) result
+val call_unary
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> ?deadline:float
+  -> t
+  -> service:string
+  -> method_:string
+  -> request:string
+  -> (string, Grpc_core.Status.t) result
 
 (** Call a server streaming RPC method.
 
@@ -235,15 +254,15 @@ val call_unary :
     @param method_ Method name
     @param request Request bytes
     @return Stream of response messages. Stream ends with [Error Status.ok] on success. *)
-val call_server_streaming :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  ?deadline:float ->
-  t ->
-  service:string ->
-  method_:string ->
-  request:string ->
-  (string, Grpc_core.Status.t) result Grpc_stream.t
+val call_server_streaming
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> ?deadline:float
+  -> t
+  -> service:string
+  -> method_:string
+  -> request:string
+  -> (string, Grpc_core.Status.t) result Grpc_stream.t
 
 (** Call a client streaming RPC method.
 
@@ -258,15 +277,15 @@ val call_server_streaming :
     @param method_ Method name
     @param requests Stream of request bytes to send
     @return Single response or error status *)
-val call_client_streaming :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  ?deadline:float ->
-  t ->
-  service:string ->
-  method_:string ->
-  requests:string Grpc_stream.t ->
-  (string, Grpc_core.Status.t) result
+val call_client_streaming
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> ?deadline:float
+  -> t
+  -> service:string
+  -> method_:string
+  -> requests:string Grpc_stream.t
+  -> (string, Grpc_core.Status.t) result
 
 (** Call a bidirectional streaming RPC method.
 
@@ -282,15 +301,15 @@ val call_client_streaming :
     @param method_ Method name
     @param requests Stream of request bytes to send
     @return Stream of response messages *)
-val call_bidi :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  ?deadline:float ->
-  t ->
-  service:string ->
-  method_:string ->
-  requests:string Grpc_stream.t ->
-  (string, Grpc_core.Status.t) result Grpc_stream.t
+val call_bidi
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> ?deadline:float
+  -> t
+  -> service:string
+  -> method_:string
+  -> requests:string Grpc_stream.t
+  -> (string, Grpc_core.Status.t) result Grpc_stream.t
 
 (** Close the client connection *)
 val close : t -> unit
@@ -311,8 +330,8 @@ val close : t -> unit
     @param env Eio environment
     @param client The gRPC client
     @return [Ok ()] on successful PING/ACK, [Error status] on failure *)
-val ping :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  t ->
-  (unit, Grpc_core.Status.t) result
+val ping
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> t
+  -> (unit, Grpc_core.Status.t) result

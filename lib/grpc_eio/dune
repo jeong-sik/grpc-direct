@@ -1,4 +1,18 @@
 (library
  (name grpc_eio)
  (public_name grpc-direct)
- (libraries grpc_core eio eio_main h2 h2-eio h2_lite gluten-eio uri tls-eio tls ca-certs digestif mirage-crypto-rng-eio mirage-crypto-rng.unix))
+ (libraries
+  grpc_core
+  eio
+  eio_main
+  h2
+  h2-eio
+  h2_lite
+  gluten-eio
+  uri
+  tls-eio
+  tls
+  ca-certs
+  digestif
+  mirage-crypto-rng-eio
+  mirage-crypto-rng.unix))

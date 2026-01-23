@@ -5,18 +5,14 @@
 type encoder = string -> (string, string) result
 type decoder = string -> (string, string) result
 
-type t = {
-  name : string;
-  encoder : encoder;
-  decoder : decoder;
-}
+type t =
+  { name : string
+  ; encoder : encoder
+  ; decoder : decoder
+  }
 
 (** Identity codec - no compression *)
-let identity : t = {
-  name = "identity";
-  encoder = Result.ok;
-  decoder = Result.ok;
-}
+let identity : t = { name = "identity"; encoder = Result.ok; decoder = Result.ok }
 
 (** Gzip codec using decompress library *)
 module Gzip = struct
@@ -42,8 +38,9 @@ module Gzip = struct
     try
       Gz.Higher.compress ~w ~q ~level ~refill ~flush () cfg i o;
       Ok (Buffer.contents r)
-    with exn ->
-      Error (Printexc.to_string exn)
+    with
+    | exn -> Error (Printexc.to_string exn)
+  ;;
 
   let decoder str =
     let i = De.bigstring_create De.io_buffer_size in
@@ -63,13 +60,12 @@ module Gzip = struct
     match Gz.Higher.uncompress ~refill ~flush i o with
     | Ok _metadata -> Ok (Buffer.contents r)
     | Error (`Msg err) -> Error err
+  ;;
 end
 
-let gzip ?(level = 4) () : t = {
-  name = "gzip";
-  encoder = Gzip.encoder ~level;
-  decoder = Gzip.decoder;
-}
+let gzip ?(level = 4) () : t =
+  { name = "gzip"; encoder = Gzip.encoder ~level; decoder = Gzip.decoder }
+;;
 
 (** Zstd codec - Compact Protocol v4
 
@@ -77,29 +73,26 @@ let gzip ?(level = 4) () : t = {
     Recommended for LLM-to-LLM communication. *)
 module Zstd_codec = struct
   let encoder ?(level = 3) str =
-    try
-      Ok (Zstd.compress ~level str)
-    with Zstd.Error msg ->
-      Error ("Zstd compression failed: " ^ msg)
+    try Ok (Zstd.compress ~level str) with
+    | Zstd.Error msg -> Error ("Zstd compression failed: " ^ msg)
+  ;;
 
   let decoder str =
     try
       (* Estimate decompressed size - typically 3-10x compressed *)
       let estimated_size = max 4096 (String.length str * 8) in
       Ok (Zstd.decompress estimated_size str)
-    with Zstd.Error msg ->
-      Error ("Zstd decompression failed: " ^ msg)
+    with
+    | Zstd.Error msg -> Error ("Zstd decompression failed: " ^ msg)
+  ;;
 end
 
-let zstd ?(level = 3) () : t = {
-  name = "zstd";
-  encoder = Zstd_codec.encoder ~level;
-  decoder = Zstd_codec.decoder;
-}
+let zstd ?(level = 3) () : t =
+  { name = "zstd"; encoder = Zstd_codec.encoder ~level; decoder = Zstd_codec.decoder }
+;;
 
 (** Normalize encoding names to compare safely *)
-let normalize_name s =
-  s |> String.trim |> String.lowercase_ascii
+let normalize_name s = s |> String.trim |> String.lowercase_ascii
 
 (** Parse grpc-accept-encoding header into normalized list *)
 let parse_accept (header : string) : string list =
@@ -107,17 +100,20 @@ let parse_accept (header : string) : string list =
   |> String.split_on_char ','
   |> List.map normalize_name
   |> List.filter (fun s -> s <> "")
+;;
 
 (** Find codec by name in supported list *)
 let find_by_name ~supported name =
   let name = normalize_name name in
   List.find_opt (fun c -> normalize_name c.name = name) supported
+;;
 
 (** Negotiate codec based on accept-encoding header *)
 let negotiate ~supported ~accepted : t =
   let accepted = String.split_on_char ',' accepted |> List.map String.trim in
   List.find_opt (fun codec -> List.mem codec.name accepted) supported
   |> Option.value ~default:identity
+;;
 
 (** Check if codec is identity (no compression) *)
 let is_identity codec = codec.name = "identity"

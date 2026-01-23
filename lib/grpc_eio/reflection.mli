@@ -27,10 +27,10 @@
     - Method introspection returns empty list *)
 
 (** Service info returned by reflection queries *)
-type service_info = {
-  name : string;
-  methods : string list;
-}
+type service_info =
+  { name : string
+  ; methods : string list
+  }
 
 (** Create the ServerReflection service.
 

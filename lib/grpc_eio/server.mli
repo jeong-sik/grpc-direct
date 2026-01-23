@@ -24,14 +24,14 @@
 (** {1 Configuration} *)
 
 (** Server configuration *)
-type config = {
-  host : string;                        (** Bind address (default: 127.0.0.1) *)
-  port : int;                           (** Bind port (default: 50051) *)
-  codecs : Grpc_core.Codec.t list;      (** Supported compression codecs *)
-  max_message_size : int;               (** Max message size (default: 4MB) *)
-  default_timeout : Grpc_core.Timeout.t option;  (** Default request timeout *)
-  tls : Tls_config.t option;            (** TLS configuration (optional) *)
-}
+type config =
+  { host : string (** Bind address (default: 127.0.0.1) *)
+  ; port : int (** Bind port (default: 50051) *)
+  ; codecs : Grpc_core.Codec.t list (** Supported compression codecs *)
+  ; max_message_size : int (** Max message size (default: 4MB) *)
+  ; default_timeout : Grpc_core.Timeout.t option (** Default request timeout *)
+  ; tls : Tls_config.t option (** TLS configuration (optional) *)
+  }
 
 (** Default server configuration *)
 val default_config : config
@@ -83,31 +83,33 @@ val supported_encodings : t -> string
 
 (** Lookup a method by path.
     @return (service, method_def, codec) or error status *)
-val lookup_method : t -> string ->
-  (Service.t * Service.method_def * Grpc_core.Codec.t, Grpc_core.Status.t) result
+val lookup_method
+  :  t
+  -> string
+  -> (Service.t * Service.method_def * Grpc_core.Codec.t, Grpc_core.Status.t) result
 
 (** Handle a unary request.
     Used internally by the HTTP/2 handler. *)
-val handle_request :
-  t ->
-  clock:_ Eio.Time.clock ->
-  path:string ->
-  metadata:(string * string) list ->
-  body:string ->
-  request_codec:Grpc_core.Codec.t ->
-  response_codec:Grpc_core.Codec.t ->
-  (string * (string * string) list * Grpc_core.Codec.t, Grpc_core.Status.t) result
+val handle_request
+  :  t
+  -> clock:_ Eio.Time.clock
+  -> path:string
+  -> metadata:(string * string) list
+  -> body:string
+  -> request_codec:Grpc_core.Codec.t
+  -> response_codec:Grpc_core.Codec.t
+  -> (string * (string * string) list * Grpc_core.Codec.t, Grpc_core.Status.t) result
 
 (** Handle a unary request with decoded message data. *)
-val handle_decoded_request :
-  t ->
-  clock:_ Eio.Time.clock ->
-  path:string ->
-  metadata:(string * string) list ->
-  request_data:string ->
-  response_codec:Grpc_core.Codec.t ->
-  method_def:Service.method_def ->
-  (string * (string * string) list * Grpc_core.Codec.t, Grpc_core.Status.t) result
+val handle_decoded_request
+  :  t
+  -> clock:_ Eio.Time.clock
+  -> path:string
+  -> metadata:(string * string) list
+  -> request_data:string
+  -> response_codec:Grpc_core.Codec.t
+  -> method_def:Service.method_def
+  -> (string * (string * string) list * Grpc_core.Codec.t, Grpc_core.Status.t) result
 
 (** {1 Multi-domain Support}
 
@@ -118,21 +120,16 @@ val handle_decoded_request :
     Handles a single gRPC request within an HTTP/2 connection.
     @param sw Eio switch for spawning fibers
     @param clock Eio clock for timeout enforcement *)
-val request_handler :
-  sw:Eio.Switch.t ->
-  clock:_ Eio.Time.clock ->
-  t ->
-  H2.Reqd.t ->
-  unit
+val request_handler : sw:Eio.Switch.t -> clock:_ Eio.Time.clock -> t -> H2.Reqd.t -> unit
 
 (** HTTP/2 error handler.
     Called when connection-level errors occur. *)
-val error_handler :
-  Eio.Net.Sockaddr.stream ->
-  ?request:H2.Request.t ->
-  H2.Server_connection.error ->
-  (H2.Headers.t -> H2.Body.Writer.t) ->
-  unit
+val error_handler
+  :  Eio.Net.Sockaddr.stream
+  -> ?request:H2.Request.t
+  -> H2.Server_connection.error
+  -> (H2.Headers.t -> H2.Body.Writer.t)
+  -> unit
 
 (** Access server config (for multi-domain cloning) *)
 val config : t -> config
@@ -148,4 +145,5 @@ val metrics : t -> Metrics.t option
 
 (** Check/set running state *)
 val running : t -> bool
+
 val set_running : t -> bool -> unit
