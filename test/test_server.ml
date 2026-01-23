@@ -7,7 +7,8 @@ let echo_handler request =
 
 let () =
   Printf.printf "Starting grpc-direct test server on port 9940...\n%!";
-  let service = Grpc_eio.Service.create "test.EchoService"
+  let service =
+    Grpc_eio.Service.create "test.EchoService"
     |> Grpc_eio.Service.add_unary "Echo" echo_handler
   in
   let config : Grpc_eio.Server.config =
