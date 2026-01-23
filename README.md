@@ -258,6 +258,13 @@ let handler stream request =
 | `grpc-direct` | Library `grpc_eio` (server/client + Eio features) |
 | `grpc-direct-protoc` | `protoc-gen-grpc-direct` plugin + `grpc_protoc` library |
 
+## Naming
+
+- Repo/opam: `grpc-direct`
+- Core lib: `grpc_core` (`grpc-direct-core`)
+- Eio lib: `grpc_eio` (`grpc-direct`)
+- Protoc plugin: `protoc-gen-grpc-direct` (legacy alias: `protoc-gen-grpc-eio`)
+
 ## Code Generation (protoc)
 
 Generate protobuf message types with `ocaml-protoc-plugin`, then generate gRPC
