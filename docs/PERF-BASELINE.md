@@ -36,6 +36,25 @@ Raw logs (local runs):
 - `tmp/ghz_standard.txt`
 - `tmp/ghz_high.txt`
 
+## Revalidation (2026-01-20)
+
+Median of 3 runs with warmups (2k @ 50c, 5k @ 200c). Result: PASS vs thresholds.
+
+Standard median:
+- RPS: 32,543.72
+- P50: 1.39 ms
+- P95: 1.76 ms
+- P99: 2.01 ms
+
+High median:
+- RPS: 37,644.44
+- P50: 5.18 ms
+- P95: 5.82 ms
+- P99: 6.83 ms
+
+Logs:
+- `logs/grpc-direct/perf-120/ocaml_ready_20260120_150825/summary.txt`
+
 ## Regression Thresholds
 
 Not published yet (TBD).
