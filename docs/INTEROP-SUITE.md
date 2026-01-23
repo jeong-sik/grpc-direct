@@ -11,7 +11,7 @@ This suite exercises core interop behaviors using Go/Rust clients against the OC
 Runs plaintext/TLS × identity/gzip with optional repeats. Logs are kept under `bench/`.
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 ./bench/run_interop_suite.sh --repeat 3
 ```
@@ -22,7 +22,7 @@ Runs the grpc-go interop client against the OCaml server implementation of
 `grpc.testing.TestService`. This covers core unary/streaming/cancel cases.
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 ./bench/run_official_interop.sh
 ```
@@ -66,7 +66,7 @@ Note: the script uses consecutive ports starting at `--port` to avoid bind reuse
 Plaintext:
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec --profile=release bench/interop_streaming_server.exe -- \
   --host 127.0.0.1 \
@@ -78,7 +78,7 @@ dune exec --profile=release bench/interop_streaming_server.exe -- \
 TLS (server-only):
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec --profile=release bench/interop_streaming_server.exe -- \
   --host 127.0.0.1 \
@@ -92,7 +92,7 @@ dune exec --profile=release bench/interop_streaming_server.exe -- \
 mTLS (optional; requires client cert support):
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec --profile=release bench/interop_streaming_server.exe -- \
   --host 127.0.0.1 \
@@ -109,7 +109,7 @@ dune exec --profile=release bench/interop_streaming_server.exe -- \
 Use a long per-message delay to exceed the client deadline (Go client uses 10s).
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec --profile=release bench/interop_streaming_server.exe -- \
   --host 127.0.0.1 \
@@ -121,7 +121,7 @@ dune exec --profile=release bench/interop_streaming_server.exe -- \
 ## 2) Go client suite
 
 ```
-cd lib/grpc-eio-next/bench/go-comparison
+cd grpc-direct/bench/go-comparison
 
 go run -tags interop_client . \
   --addr 127.0.0.1:50051 \
@@ -133,7 +133,7 @@ go run -tags interop_client . \
 TLS:
 
 ```
-cd lib/grpc-eio-next/bench/go-comparison
+cd grpc-direct/bench/go-comparison
 
 go run -tags interop_client . \
   --addr 127.0.0.1:50051 \
@@ -146,7 +146,7 @@ go run -tags interop_client . \
 ## 3) Rust client suite
 
 ```
-cd lib/grpc-eio-next/bench/rust-comparison
+cd grpc-direct/bench/rust-comparison
 
 cargo run --release --bin interop_streaming_client -- \
   --target http://127.0.0.1:50051 \
@@ -158,7 +158,7 @@ cargo run --release --bin interop_streaming_client -- \
 TLS:
 
 ```
-cd lib/grpc-eio-next/bench/rust-comparison
+cd grpc-direct/bench/rust-comparison
 
 cargo run --release --bin interop_streaming_client -- \
   --target https://127.0.0.1:50051 \
@@ -173,7 +173,7 @@ cargo run --release --bin interop_streaming_client -- \
 Start server with shutdown timer and let clients observe connection close:
 
 ```
-cd lib/grpc-eio-next
+cd grpc-direct
 
 dune exec --profile=release bench/interop_streaming_server.exe -- \
   --host 127.0.0.1 \
@@ -184,13 +184,13 @@ dune exec --profile=release bench/interop_streaming_server.exe -- \
 Then run clients with the wait flag:
 
 ```
-cd lib/grpc-eio-next/bench/go-comparison
+cd grpc-direct/bench/go-comparison
 
 go run -tags interop_client . --addr 127.0.0.1:50051 --wait-goaway
 ```
 
 ```
-cd lib/grpc-eio-next/bench/rust-comparison
+cd grpc-direct/bench/rust-comparison
 
 cargo run --release --bin interop_streaming_client -- \
   --target http://127.0.0.1:50051 \

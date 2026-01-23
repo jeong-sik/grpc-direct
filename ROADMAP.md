@@ -1,6 +1,6 @@
 # Roadmap
 
-grpc-eio-next development roadmap. Feedback welcome via GitHub Issues.
+grpc-direct development roadmap. Feedback welcome via GitHub Issues.
 
 ## v0.2.0 (Current)
 

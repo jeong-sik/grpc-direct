@@ -101,7 +101,7 @@ scrape_configs:
 Start Prometheus:
 
 ```sh
-cd lib/grpc-eio-next/ops/prometheus
+cd grpc-direct/ops/prometheus
 docker compose up -d
 ```
 
@@ -117,7 +117,7 @@ docker compose up -d
 Run the interop server with metrics enabled:
 
 ```sh
-cd lib/grpc-eio-next
+cd grpc-direct
 dune exec --profile=release bench/interop_streaming_server.exe -- \
   --metrics --metrics-port 9464
 ```

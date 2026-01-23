@@ -5,7 +5,7 @@ Runs a long-duration ghz workload against the local grpc-eio bench server.
 ## Usage
 
 ```bash
-cd lib/grpc-eio-next/ops/soak
+cd grpc-direct/ops/soak
 
 # 24h soak (default)
 ./run_soak.sh
@@ -16,8 +16,8 @@ DURATION_SECONDS=3600 CONCURRENCY=100 DURATION_PER_RUN=60s ./run_soak.sh
 
 ## Logs
 
-- Server: `lib/grpc-eio-next/tmp/soak_server.log`
-- Client: `lib/grpc-eio-next/tmp/soak_client.log`
+- Server: `grpc-direct/tmp/soak_server.log`
+- Client: `grpc-direct/tmp/soak_client.log`
 
 ## Notes
 
