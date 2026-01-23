@@ -1,22 +1,33 @@
 # grpc-direct
 
-**Experimental gRPC for OCaml 5.x** - zero Lwt, zero Async, pure effects.
+**Experimental gRPC for OCaml 5.x** — Eio-first, effect-based, no Lwt/Async.
 
 [![OCaml 5.x](https://img.shields.io/badge/OCaml-5.x-orange.svg)](https://ocaml.org/)
 [![License: BSD-3](https://img.shields.io/badge/License-BSD--3-blue.svg)](LICENSE)
 
 > ⚠️ **Experimental project**  
 > APIs and behavior may change without notice.  
-> **No official benchmarks yet.** Use at your own risk.
+> **Benchmarks are not published yet** (local experiments only).  
+> Use at your own risk.
 
-Unlike [grpc-ocaml](https://github.com/blandinw/grpc-ocaml) (requires Core/Async) or
-[ocaml-grpc](https://github.com/dialohq/ocaml-grpc) (requires Lwt), this library uses
-OCaml 5's native effect system via Eio for lightweight, direct-style concurrency.
+This library is Eio-native and effect-based. For alternatives, see
+[grpc-ocaml](https://github.com/blandinw/grpc-ocaml) and
+[ocaml-grpc](https://github.com/dialohq/ocaml-grpc) (refer to their docs for current details).
 
 ## Installation
 
+Requires OCaml 5.1+.
+
+If/when published on opam:
 ```bash
 opam install grpc-direct
+```
+
+From source:
+```bash
+git clone https://github.com/jeong-sik/grpc-direct
+cd grpc-direct
+opam pin add grpc-direct .
 ```
 
 Or add to your dune-project:
@@ -28,7 +39,7 @@ Or add to your dune-project:
 ## Quick Start
 
 ```ocaml
-(* Minimal server - production defaults out of the box *)
+(* Minimal server - sensible defaults out of the box *)
 let () = Eio_main.run @@ fun env ->
   Eio.Switch.run @@ fun sw ->
   let service = Grpc_eio.Service.create "helloworld.Greeter"
@@ -64,22 +75,22 @@ let () = Eio_main.run @@ fun env ->
 - ✅ **Connection Pool** - Reusable connections
 - ✅ **Load Balancer** - Round Robin, Weighted, Random
 
-## Status Snapshot (2026-01-21)
+## Status Snapshot (2026-01-23)
 
-- RFC 7540/7541 + gRPC + gRPC-Web implemented
-- Interop: Go/Rust suite + official grpc-go interop (plain/TLS) PASS
-- Compliance: h2spec 146/146 PASS (see `docs/COMPLIANCE.md`)
+- Scope: HTTP/2 + gRPC + gRPC-Web implementation in this repo
+- Interop: Go/Rust suites + official grpc-go scripts included (results not published)
+- Compliance: h2spec runner included (results not published; see `docs/COMPLIANCE.md`)
 - Resilience: slow reader/churn/cancel scripts (see `docs/RESILIENCE.md`)
 - Ops: Prometheus metrics + alert templates (see `ops/prometheus/`)
 - Performance: not published yet (public benchmarks TBD)
 - Soak: TBD (not published)
-- Known skips (by design): auth/creds/ORCA + custom metadata interop cases
+- Known skips (by design): auth/creds/ORCA + custom metadata interop cases (see `docs/INTEROP-SUITE.md`)
 - Pending: broader examples, codegen ergonomics
 
 ## Self-assessment
 
 **Strengths**
-- RFC-aligned wire behavior with a pure OCaml stack
+- Protocol-aligned wire behavior for core paths in a pure OCaml stack
 - Eio-first structured concurrency (clear lifetimes, no callback sprawl)
 - h2_lite path for throughput-sensitive services
 
@@ -239,13 +250,13 @@ let handler stream request =
 | `Pool` | Connection pooling |
 | `Balancer` | Client-side load balancing |
 
-## Packages
+## Packages (opam)
 
-| Package | Description |
-|---------|-------------|
-| `grpc-core` | Framing, compression, status codes |
-| `grpc-eio` | Server, client, all features (Eio) |
-| `grpc-protoc` | Code generator (optional) |
+| Package | Provides |
+|---------|----------|
+| `grpc-direct-core` | Library `grpc_core` (framing, compression, status codes) |
+| `grpc-direct` | Library `grpc_eio` (server/client + Eio features) |
+| `grpc-direct-protoc` | `protoc-gen-grpc-eio` plugin + `grpc_protoc` library |
 
 ## Code Generation (protoc)
 
@@ -275,21 +286,16 @@ ghz --insecure --proto bench/go-comparison/echo.proto \
     -c 50 -n 100000 localhost:50051
 ```
 
-Benchmarks are **not published yet**. The commands above are for local experiments
-only; please treat any results as preliminary and non-authoritative.
+Benchmarks are **not published yet** (by design). The commands above are for local
+experiments only; please treat any results as preliminary and non-authoritative.
 
-## Comparison
+## Alternatives
 
-| Feature | grpc-eio-next | ocaml-grpc | grpc-ocaml |
-|---------|---------------|------------|------------|
-| Runtime | Eio (effects) | Lwt | Async |
-| TLS | Native (tls-eio) | Conduit | Conduit |
-| Health Check | ✅ Built-in | ❌ | ❌ |
-| Retry | ✅ Built-in | ❌ | ❌ |
-| Metrics | ✅ Prometheus | ❌ | ❌ |
-| Reflection | ✅ Built-in | ❌ | ❌ |
-| Pool | ✅ Built-in | ❌ | ❌ |
-| Load Balancer | ✅ Built-in | ❌ | ❌ |
+- [grpc-ocaml](https://github.com/blandinw/grpc-ocaml)
+- [ocaml-grpc](https://github.com/dialohq/ocaml-grpc)
+
+Each project targets different runtime ecosystems and feature scopes; refer to
+their READMEs for current details.
 
 ## Documentation
 
