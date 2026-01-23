@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to grpc-eio-next.
+All notable changes to grpc-direct.
 
 > Note: This project is experimental.  
 > Changelog entries are draft notes and not a public release record.
