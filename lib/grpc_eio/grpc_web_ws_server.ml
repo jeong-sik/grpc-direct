@@ -675,7 +675,8 @@ let serve ?config ~sw ~env (server : Server.t) =
     | None -> None
   in
   let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true config.addr in
-  Log.info "gRPC-Web WebSocket gateway on %a" Eio.Net.Sockaddr.pp config.addr;
+  let addr = Format.asprintf "%a" Eio.Net.Sockaddr.pp config.addr in
+  Log.info "gRPC-Web WebSocket gateway on %s" addr;
   let handle_connection flow _addr =
     let upgraded = ref false in
     try

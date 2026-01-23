@@ -567,7 +567,8 @@ let serve ?config ~sw ~env (server : Server.t) =
     | None -> None
   in
   let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true config.addr in
-  Log.info "gRPC-Web server on %a" Eio.Net.Sockaddr.pp config.addr;
+  let addr = Format.asprintf "%a" Eio.Net.Sockaddr.pp config.addr in
+  Log.info "gRPC-Web server on %s" addr;
   let handle_connection flow _addr =
     try
       let reader = Eio.Buf_read.of_flow ~max_size:config.max_request_body flow in

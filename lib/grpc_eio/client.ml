@@ -168,6 +168,26 @@ module Credentials = struct
        | ComputeCallCreds f -> f ())
 end
 
+module Metadata = struct
+  let is_bin_key key =
+    let suffix = "-bin" in
+    let key_len = String.length key in
+    let suffix_len = String.length suffix in
+    key_len >= suffix_len
+    && String.equal (String.sub key (key_len - suffix_len) suffix_len) suffix
+
+  let encode_headers metadata =
+    List.map
+      (fun (k, v) ->
+         if is_bin_key k then k, Grpc_web.Base64.encode v else k, v)
+      metadata
+
+  let decode_bin_value value =
+    match Grpc_web.Base64.decode value with
+    | Ok v -> Some v
+    | Error _ -> None
+end
+
 let percent_decode (s : string) =
   let len = String.length s in
   let buf = Buffer.create len in
@@ -194,10 +214,6 @@ let percent_decode (s : string) =
 let add_metadata headers metadata =
   Metadata.encode_headers metadata
   |> List.fold_left (fun h (k, v) -> H2.Headers.add h k v) headers
-
-let status_details_from_headers headers =
-  H2.Headers.get headers "grpc-status-details-bin"
-  |> Option.bind Metadata.decode_bin_value
 
 let map_http_status_code code =
   match code with
@@ -511,7 +527,7 @@ let call_unary
             | None -> H2.Headers.get !response_headers name
           in
           let status_code_opt =
-            get_header "grpc-status" |> Option.bind int_of_string_opt
+            Option.bind (get_header "grpc-status") int_of_string_opt
           in
           let message =
             get_header "grpc-message"
@@ -519,7 +535,9 @@ let call_unary
             |> Option.value ~default:"Unknown error"
           in
           let details =
-            get_header "grpc-status-details-bin" |> Option.bind Metadata.decode_bin_value
+            Option.bind
+              (get_header "grpc-status-details-bin")
+              Metadata.decode_bin_value
           in
           match status_code_opt with
           | Some 0 ->
@@ -689,7 +707,7 @@ let call_server_streaming
               | None -> H2.Headers.get !response_headers name
             in
             let status_code_opt =
-              get_header "grpc-status" |> Option.bind int_of_string_opt
+              Option.bind (get_header "grpc-status") int_of_string_opt
             in
             let message =
               get_header "grpc-message"
@@ -697,7 +715,9 @@ let call_server_streaming
               |> Option.value ~default:""
             in
             let details =
-              get_header "grpc-status-details-bin" |> Option.bind Metadata.decode_bin_value
+              Option.bind
+                (get_header "grpc-status-details-bin")
+                Metadata.decode_bin_value
             in
             let status =
               match status_code_opt with
@@ -859,7 +879,7 @@ let call_client_streaming
             | None -> H2.Headers.get !response_headers name
           in
           let status_code_opt =
-            get_header "grpc-status" |> Option.bind int_of_string_opt
+            Option.bind (get_header "grpc-status") int_of_string_opt
           in
           let message =
             get_header "grpc-message"
@@ -867,7 +887,9 @@ let call_client_streaming
             |> Option.value ~default:"Unknown error"
           in
           let details =
-            get_header "grpc-status-details-bin" |> Option.bind Metadata.decode_bin_value
+            Option.bind
+              (get_header "grpc-status-details-bin")
+              Metadata.decode_bin_value
           in
           match status_code_opt with
           | Some 0 ->
@@ -1050,7 +1072,7 @@ let call_bidi
               | None -> H2.Headers.get !response_headers name
             in
             let status_code_opt =
-              get_header "grpc-status" |> Option.bind int_of_string_opt
+              Option.bind (get_header "grpc-status") int_of_string_opt
             in
             let message =
               get_header "grpc-message"
@@ -1058,7 +1080,9 @@ let call_bidi
               |> Option.value ~default:""
             in
             let details =
-              get_header "grpc-status-details-bin" |> Option.bind Metadata.decode_bin_value
+              Option.bind
+                (get_header "grpc-status-details-bin")
+                Metadata.decode_bin_value
             in
             let status =
               match status_code_opt with
