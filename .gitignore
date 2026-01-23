@@ -39,6 +39,7 @@ Thumbs.db
 bench/go-comparison/server
 bench/go-comparison/go-echo-server
 bench/go-comparison/echo_server*
+bench/go-comparison/tmp_interop_client_smoke
 bench/go-comparison/*.exe
 
 # Rust build artifacts (bench)
