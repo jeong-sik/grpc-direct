@@ -8,7 +8,7 @@ Features: Health Check, Retry Policy, Prometheus Metrics, Server Reflection,
 Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies."""
 maintainer: ["Jeong-Sik Yun"]
 authors: ["Jeong-Sik Yun"]
-license: "BSD-3-Clause"
+license: "Apache-2.0"
 homepage: "https://github.com/jeong-sik/grpc-direct"
 doc: "https://github.com/jeong-sik/grpc-direct"
 bug-reports: "https://github.com/jeong-sik/grpc-direct/issues"

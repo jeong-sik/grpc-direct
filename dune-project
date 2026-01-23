@@ -4,7 +4,7 @@
 
 (generate_opam_files true)
 
-(license BSD-3-Clause)
+(license Apache-2.0)
 (authors "Jeong-Sik Yun")
 (maintainers "Jeong-Sik Yun")
 (source (github jeong-sik/grpc-direct))

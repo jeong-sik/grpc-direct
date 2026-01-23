@@ -3,7 +3,7 @@
 **Experimental gRPC for OCaml 5.x** — Eio-first, effect-based, no Lwt/Async.
 
 [![OCaml 5.x](https://img.shields.io/badge/OCaml-5.x-orange.svg)](https://ocaml.org/)
-[![License: BSD-3](https://img.shields.io/badge/License-BSD--3-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 > ⚠️ **Experimental project**  
 > APIs and behavior may change without notice.  
@@ -318,4 +318,4 @@ their READMEs for current details.
 
 ## License
 
-BSD-3-Clause
+Apache-2.0
