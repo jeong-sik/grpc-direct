@@ -1,6 +1,12 @@
 # gRPC Implementation Comparison
 
-Comprehensive comparison of grpc-eio with other language implementations.
+Comprehensive comparison of grpc-direct (OCaml libraries: `grpc_eio`, `grpc_core`)
+with other language implementations.
+
+Naming: project `grpc-direct`; Eio library `grpc_eio`; core library `grpc_core`.
+
+> Note: Public performance benchmarks are not published yet.  
+> This document focuses on qualitative comparisons for now.
 
 ## Summary Table (8 implementations)
 
@@ -329,7 +335,7 @@ Client.call_unary ~sw ~env ~deadline:300.0 client ~service ~method_ ~request
 
 ## New in v0.4.0: State-of-the-Art Algorithms
 
-grpc-eio now includes cutting-edge algorithms from systems research:
+grpc-direct (grpc-eio) now includes cutting-edge algorithms from systems research:
 
 ### Power of Two Choices (P2C) Load Balancer
 Based on Google Maglev. O(log log n) max load vs O(log n) for random.

@@ -307,7 +307,8 @@ let handle_bidi_streaming
   let response_started = ref false in
   let body_writer = ref None in
   let finished = ref false in
-  let response_stream = handler request_stream in
+  (* Promise for response_stream - handler runs in fiber to avoid blocking *)
+  let response_stream_promise, response_stream_resolver = Eio.Promise.create () in
   (* Promise for writer fiber to signal drain completion *)
   let writer_done_promise, writer_done_resolver = Eio.Promise.create () in
   let signal_writer_done () =
@@ -320,7 +321,9 @@ let handle_bidi_streaming
       finished := true;
       Body.Reader.close body;
       Grpc_stream.close request_stream;
-      Grpc_stream.close response_stream;
+      (* Close response_stream if available *)
+      (if Eio.Promise.is_resolved response_stream_promise
+       then Grpc_stream.close (Eio.Promise.await response_stream_promise));
       Eio.Promise.await writer_done_promise;
       if !response_started
       then (
@@ -346,18 +349,20 @@ let handle_bidi_streaming
       match respond_with_streaming_safe ~reqd resp with
       | None ->
         finished := true;
-        Grpc_stream.close response_stream;
+        (if Eio.Promise.is_resolved response_stream_promise
+         then Grpc_stream.close (Eio.Promise.await response_stream_promise));
         signal_writer_done ()
       | Some bw -> body_writer := Some bw)
   in
-  (* Writer fiber: blocks on response stream and exits on End_of_file. *)
+  (* Writer fiber: awaits response_stream from handler, then writes responses *)
   Eio.Fiber.fork ~sw (fun () ->
+    let response_stream = Eio.Promise.await response_stream_promise in
     let write_message msg =
       ensure_response_started ();
       match Message.encode ~codec:response_codec msg with
       | Error e ->
         (* Log encoding error but continue - don't crash the stream *)
-        Log.error "gRPC encode error: %s" e
+        Eio.traceln "gRPC encode error: %s" e
       | Ok encoded ->
         (match !body_writer with
          | Some bw ->
@@ -381,6 +386,10 @@ let handle_bidi_streaming
         | exception End_of_file -> signal_writer_done ())
     in
     write_responses ());
+  (* Handler fiber: runs handler which may block on request_stream *)
+  Eio.Fiber.fork ~sw (fun () ->
+    let response_stream = handler request_stream in
+    Eio.Promise.resolve response_stream_resolver response_stream);
   let handle_extract_error err =
     let status =
       match err with

@@ -670,7 +670,7 @@ let serve ?config ~sw ~env (server : Server.t) =
     match config.tls with
     | Some tls ->
       let cfg = Tls_config.load_http1 tls in
-      Log.info "gRPC-Web WebSocket TLS enabled (ALPN: http/1.1)";
+      Eio.traceln "gRPC-Web WebSocket TLS enabled (ALPN: http/1.1)";
       Some cfg
     | None -> None
   in
@@ -757,12 +757,12 @@ let serve ?config ~sw ~env (server : Server.t) =
       if !upgraded
       then send_ws_close flow
       else send_plain ~flow ~status:400 ~reason:"Bad Request";
-      Log.warn "gRPC-Web WebSocket parse error: %s" msg
+      Eio.traceln "gRPC-Web WebSocket parse error: %s" msg
     | exn ->
       if !upgraded
       then send_ws_close flow
       else send_plain ~flow ~status:500 ~reason:"Internal Server Error";
-      Log.error "gRPC-Web WebSocket error: %s" (Printexc.to_string exn)
+      Eio.traceln "gRPC-Web WebSocket error: %s" (Printexc.to_string exn)
   in
   let accept_plain sock addr = handle_connection sock addr in
   let accept_tls sock addr =
@@ -777,7 +777,7 @@ let serve ?config ~sw ~env (server : Server.t) =
       socket
       ~sw
       ~on_error:(fun exn ->
-        Log.error "gRPC-Web WebSocket connection error: %s" (Printexc.to_string exn))
+        Eio.traceln "gRPC-Web WebSocket connection error: %s" (Printexc.to_string exn))
       accept_tls
   done
 ;;

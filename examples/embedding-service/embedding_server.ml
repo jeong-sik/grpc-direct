@@ -72,7 +72,7 @@ end
 (** Embedding handler *)
 let embed (request_bytes : string) : string =
   let request = EmbedRequest.of_bytes request_bytes in
-  Grpc_eio.Log.info
+  Printf.printf
     "📊 [Embed] Processing %d texts with model %s"
     (List.length request.texts)
     request.model;
@@ -83,7 +83,7 @@ let embed (request_bytes : string) : string =
   let usage =
     List.fold_left (fun acc t -> acc + EmbeddingModel.count_tokens t) 0 request.texts
   in
-  Grpc_eio.Log.info
+  Printf.printf
     "📊 [Embed] Generated %d embeddings in %.3fs (%d tokens)"
     (List.length embeddings)
     elapsed

@@ -1,6 +1,8 @@
-# grpc-direct v2: Pure RFC Implementation Design
+# grpc-direct: Pure RFC Implementation Design
 
 ## Overview
+
+Naming: project `grpc-direct`; Eio library `grpc_eio`; core library `grpc_core`.
 
 순수 RFC 스펙 기반 OCaml gRPC 구현. 외부 C/Rust 의존 없이 RFC 직접 구현.
 
