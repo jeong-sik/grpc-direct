@@ -56,11 +56,11 @@ module ServerState = struct
   let init () =
     start_time := Unix.gettimeofday ();
     (* Simulate model loading *)
-    Grpc_eio.Log.info "📦 Loading model...";
+    Printf.printf "📦 Loading model...";
     Unix.sleepf 0.5;
     (* Simulate load time *)
     model_loaded := true;
-    Grpc_eio.Log.info "✅ Model loaded"
+    Printf.printf "✅ Model loaded"
   ;;
 
   let is_healthy () = !model_loaded
@@ -83,7 +83,7 @@ let infer (request_bytes : string) : string =
   let request = InferRequest.of_bytes request_bytes in
   let start = Unix.gettimeofday () in
   let input_preview = String.sub request.input 0 (min 30 (String.length request.input)) in
-  Grpc_eio.Log.info "🔮 [Infer] Processing: %s..." input_preview;
+  Printf.printf "🔮 [Infer] Processing: %s..." input_preview;
   (* Simulate model inference *)
   Unix.sleepf (0.01 +. Random.float 0.02);
   let output =

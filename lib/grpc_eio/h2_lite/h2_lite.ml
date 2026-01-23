@@ -620,6 +620,11 @@ module Server = struct
               ; flow_control
               }
             in
+            (* Transition stream state for received HEADERS *)
+            let headers_end_stream =
+              Frame.Flags.is_set frame.header.flags Frame.Flags.end_stream
+            in
+            Stream.transition_recv stream.stream_state `Headers ~end_stream:headers_end_stream;
             (match info.priority with
              | Some prio -> Connection.update_priority conn ~stream_id:info.stream_id prio
              | None -> ());

@@ -107,7 +107,7 @@ let chat_completion (request_bytes : string) : string Grpc_eio.Stream.t =
   let prompt_preview =
     String.sub request.prompt 0 (min 30 (String.length request.prompt))
   in
-  Grpc_eio.Log.info "🤖 [AI] Generating response for: %s..." prompt_preview;
+  Printf.printf "🤖 [AI] Generating response for: %s..." prompt_preview;
   let tokens =
     AIModel.generate_response
       ~prompt:request.prompt
@@ -137,7 +137,7 @@ let metrics_interceptor () : string Grpc_eio.Interceptor.t =
     let start = Unix.gettimeofday () in
     let result = next ctx in
     let elapsed = Unix.gettimeofday () -. start in
-    Grpc_eio.Log.info "📊 [Metrics] Request #%d completed in %.3fs" !request_count elapsed;
+    Printf.printf "📊 [Metrics] Request #%d completed in %.3fs" !request_count elapsed;
     result)
 ;;
 

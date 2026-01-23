@@ -78,7 +78,7 @@ let error_handler _client_addr ?request:_ error respond =
     | `Exn exn -> Printexc.to_string exn
     | _ -> "Server error"
   in
-  Log.error "%s" message;
+  Eio.traceln "%s" message;
   let headers = Headers.of_list [ "content-type", "text/plain" ] in
   let body = respond headers in
   Body.Writer.write_string body message;
@@ -101,7 +101,7 @@ let () =
     Eio.Net.accept_fork
       socket
       ~sw
-      ~on_error:(fun exn -> Log.error "Connection: %s" (Printexc.to_string exn))
+      ~on_error:(fun exn -> Eio.traceln "Connection: %s" (Printexc.to_string exn))
       (fun client_socket client_addr -> handler ~sw client_addr client_socket)
   done
 ;;
