@@ -3,17 +3,10 @@
 Minimal echo servers used for cross-language comparison.
 All servers implement the same proto: `bench/go-comparison/echo.proto`.
 
-## Latest Results (2026-01-18)
+## Results
 
-| Implementation | RPS | vs grpc-go |
-|----------------|-----|------------|
-| grpc-go | 66,321 | 100% |
-| tonic (Rust) | 52,405 | 79.0% |
-| grpc-eio (h2_lite) | 37,857 | 57.1% |
-| grpc-dotnet (docker) | 37,681 | 56.8% |
-| grpc-eio (h2_eio) | 24,670 | 37.2% |
-
-grpc-go leads in this run; h2_lite stays competitive on macOS M3 Max (50c/100k).
+Public benchmark results are **not published yet**. The scripts below are for
+local experiments only.
 
 ## Common
 
