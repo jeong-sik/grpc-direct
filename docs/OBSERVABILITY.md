@@ -1,6 +1,6 @@
 # Observability (Prometheus)
 
-This document defines a minimal Prometheus-based observability and alerting setup for grpc-eio.
+This document defines a minimal Prometheus-based observability and alerting setup for grpc-direct.
 
 ## Quickstart
 
@@ -43,7 +43,7 @@ These are conservative defaults. Tune thresholds to your traffic profile.
 
 ```yaml
 groups:
-  - name: grpc_eio
+  - name: grpc_direct
     rules:
       - alert: GrpcHighErrorRate
         expr: |
@@ -91,11 +91,11 @@ endpoint (default is `:9464`). Example:
 
 ```yaml
 scrape_configs:
-  - job_name: grpc_eio
+  - job_name: grpc_direct
     metrics_path: /metrics
     static_configs:
       - targets:
-          - grpc-eio:9464
+          - grpc-direct:9464
 ```
 
 Start Prometheus:

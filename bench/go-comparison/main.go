@@ -1,7 +1,7 @@
 //go:build !interop_client
 // +build !interop_client
 
-// Go gRPC Echo Server for fair comparison with grpc-eio
+// Go gRPC Echo Server for fair comparison with grpc-direct
 
 package main
 

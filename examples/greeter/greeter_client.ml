@@ -3,7 +3,7 @@
     Run with: dune exec examples/greeter/greeter_client.exe
 
     This demonstrates:
-    - Creating a gRPC client with grpc-eio
+    - Creating a gRPC client with grpc-direct
     - Making unary RPC calls
     - Handling responses and errors
 *)

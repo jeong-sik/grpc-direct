@@ -1,4 +1,4 @@
-# Resilience Gates (grpc-eio)
+# Resilience Gates (grpc-direct)
 
 This document defines resilience checks for streaming backpressure,
 connection churn, and cancellation behavior.

@@ -1,10 +1,10 @@
-(** protoc-gen-grpc-eio: Protoc plugin for generating gRPC OCaml stubs.
+(** protoc-gen-grpc-direct: Protoc plugin for generating gRPC OCaml stubs.
 
     This executable is called by protoc when you run:
-    protoc --grpc-eio_out=. --plugin=protoc-gen-grpc-eio myservice.proto
+    protoc --grpc-direct_out=. --plugin=protoc-gen-grpc-direct myservice.proto
 
     For now, it also supports a simpler standalone mode:
-    protoc-gen-grpc-eio < service_definition.txt > service_grpc.ml
+    protoc-gen-grpc-direct < service_definition.txt > service_grpc.ml
 
     Service definition format:
     {v

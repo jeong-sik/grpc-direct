@@ -1,5 +1,5 @@
-// Service definition for protoc-gen-grpc-eio
-// Use: protoc-gen-grpc-eio < greeter.service > greeter_grpc.ml
+// Service definition for protoc-gen-grpc-direct
+// Use: protoc-gen-grpc-direct < greeter.service > greeter_grpc.ml
 
 package: helloworld
 service: Greeter

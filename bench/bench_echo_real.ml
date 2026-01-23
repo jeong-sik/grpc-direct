@@ -103,7 +103,7 @@ let run_benchmark env =
   let net = Eio.Stdenv.net env in
 
   printf "\n╔═══════════════════════════════════════════════════════╗\n";
-  printf "║     grpc-eio REAL Echo Benchmark (Server + Client)    ║\n";
+  printf "║     grpc-direct REAL Echo Benchmark (Server + Client)    ║\n";
   printf "╚═══════════════════════════════════════════════════════╝\n\n";
 
   printf "Configuration:\n";
@@ -197,7 +197,7 @@ let run_benchmark env =
   printf "  Max:  %8.2f\n\n" (ns_to_us stats.max_ns);
 
   printf "═══════════════════════════════════════════════════════\n";
-  printf "  grpc-eio: %.0f RPS, P50=%.0f µs, P99=%.0f µs\n"
+  printf "  grpc-direct: %.0f RPS, P50=%.0f µs, P99=%.0f µs\n"
     rps (ns_to_us (percentile stats 0.50)) (ns_to_us (percentile stats 0.99));
   printf "═══════════════════════════════════════════════════════\n\n%!";
 

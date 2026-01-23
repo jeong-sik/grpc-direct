@@ -31,7 +31,7 @@ let () =
 
   Printf.printf "\n";
   Printf.printf "╔═══════════════════════════════════════════════════════╗\n";
-  Printf.printf "║     grpc-eio Server_lite (h2_lite) Benchmark          ║\n";
+  Printf.printf "║     grpc-direct Server_lite (h2_lite) Benchmark          ║\n";
   Printf.printf "╚═══════════════════════════════════════════════════════╝\n";
   Printf.printf "\n";
   Printf.printf "Server listening on port %d\n" port;

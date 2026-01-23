@@ -142,7 +142,7 @@ let bench_tcp_connect env =
 (** Print summary *)
 let print_summary codec_stats header_stats tcp_stats =
   printf "╔═══════════════════════════════════════════════════════╗\n";
-  printf "║           grpc-eio Component Breakdown                ║\n";
+  printf "║           grpc-direct Component Breakdown                ║\n";
   printf "╚═══════════════════════════════════════════════════════╝\n\n";
 
   let codec_p50 = ns_to_us (percentile codec_stats 0.50) in
@@ -177,7 +177,7 @@ let print_summary codec_stats header_stats tcp_stats =
 
 let () =
   printf "\n╔═══════════════════════════════════════════════════════╗\n";
-  printf "║      grpc-eio Raw Performance Benchmark               ║\n";
+  printf "║      grpc-direct Raw Performance Benchmark               ║\n";
   printf "╚═══════════════════════════════════════════════════════╝\n\n";
 
   let codec_stats = bench_codec () in

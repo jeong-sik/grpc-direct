@@ -1,11 +1,11 @@
 # gRPC-Web Proxy (Envoy)
 
-This proxy enables browser gRPC-Web (unary + server streaming) to a grpc-eio
+This proxy enables browser gRPC-Web (unary + server streaming) to a grpc-direct
 backend. Client/bidi streaming is not supported by the gRPC-Web browser spec.
 
 ## Run
 
-1) Start grpc-eio gRPC server on 50051 (HTTP/2).
+1) Start grpc-direct gRPC server on 50051 (HTTP/2).
 2) Run Envoy with the config below:
 
 ```sh

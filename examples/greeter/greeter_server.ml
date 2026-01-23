@@ -3,7 +3,7 @@
     Run with: dune exec examples/greeter/greeter_server.exe
 
     This demonstrates:
-    - Creating a gRPC server with grpc-eio
+    - Creating a gRPC server with grpc-direct
     - Registering services with handlers
     - Using interceptors for logging
 *)

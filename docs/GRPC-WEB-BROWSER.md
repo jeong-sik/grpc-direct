@@ -13,12 +13,12 @@ This limitation applies to all language implementations.
 - Client/bidi streaming: use a different transport (usually WebSocket), e.g.
   Connect-Web, or a custom WS bridge.
 
-## Recommended path for grpc-eio
+## Recommended path for grpc-direct
 
-1) Run grpc-eio as a normal gRPC (HTTP/2) server.
+1) Run grpc-direct as a normal gRPC (HTTP/2) server.
 2) Use Envoy for gRPC-Web (unary + server streaming) in the browser.
 3) If you need client/bidi streaming in browsers, add a WebSocket gateway.
-   grpc-eio provides `Grpc_web_ws_server` for this.
+   grpc-direct provides `Grpc_web_ws_server` for this.
 
 The Envoy config in `examples/grpc-web/envoy.yaml` provides the standard
 grpc-web proxy path.
@@ -26,7 +26,7 @@ grpc-web proxy path.
 ## Envoy quickstart (unary + server streaming)
 
 ```sh
-# Terminal 1: run grpc-eio server on 50051
+# Terminal 1: run grpc-direct server on 50051
 
 # Terminal 2: run Envoy (grpc-web proxy)
 # docker run --rm -p 8081:8081 \
@@ -42,7 +42,7 @@ Use a WebSocket gateway (Connect-Web or a custom WS bridge). That is a
 separate protocol from gRPC-Web and must be implemented explicitly.
 
 
-## grpc-eio WebSocket gateway
+## grpc-direct WebSocket gateway
 
 `Grpc_web_ws_server` implements a simple gRPC-Web-over-WebSocket bridge:
 - WebSocket subprotocol: `grpc-websockets` (optional).
