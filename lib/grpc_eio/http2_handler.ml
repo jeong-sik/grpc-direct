@@ -385,11 +385,34 @@ let handle_bidi_streaming
           write_responses ()
         | exception End_of_file -> signal_writer_done ())
     in
+    (* For bidi streaming: send HTTP 200 headers immediately so client
+       can start sending request body. Without this, clients wait for
+       server headers before continuing, causing deadlock. *)
+    Eio.traceln "[BIDI] Writer: calling ensure_response_started";
+    ensure_response_started ();
+    Eio.traceln "[BIDI] Writer: starting write_responses loop";
     write_responses ());
-  (* Handler fiber: runs handler which may block on request_stream *)
+  (* Handler fiber: create response_stream first, then run handler.
+     This allows Writer to start sending HTTP headers immediately,
+     which is critical for bidirectional streaming where clients
+     wait for server headers before sending request data. *)
   Eio.Fiber.fork ~sw (fun () ->
-    let response_stream = handler request_stream in
-    Eio.Promise.resolve response_stream_resolver response_stream);
+    let proxy_stream = Grpc_stream.create 64 in
+    (* Resolve immediately so Writer can start sending headers *)
+    Eio.Promise.resolve response_stream_resolver proxy_stream;
+    (* Run handler in nested fiber - it may block on request_stream *)
+    Eio.Fiber.fork ~sw (fun () ->
+      let handler_stream = handler request_stream in
+      (* Copy handler's responses to proxy stream *)
+      let rec copy () =
+        match Grpc_stream.take handler_stream with
+        | msg ->
+          Grpc_stream.add proxy_stream msg;
+          copy ()
+        | exception End_of_file ->
+          Grpc_stream.close proxy_stream
+      in
+      copy ()));
   let handle_extract_error err =
     let status =
       match err with
