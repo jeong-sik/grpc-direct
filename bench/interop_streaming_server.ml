@@ -178,7 +178,7 @@ let () =
     ignore contents;
     encode_payload summary
   in
-  let bidi_handler request_stream =
+  let bidi_handler ~sw request_stream =
     let response_stream = Grpc_eio.Stream.create 16 in
     Eio.Fiber.fork ~sw (fun () ->
       let rec loop () =

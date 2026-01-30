@@ -432,7 +432,7 @@ let () =
     Proto.encode_streaming_input_response !sum
   in
   let bidi_idle_timeout = 2.0 in
-  let full_duplex_call request_stream =
+  let full_duplex_call ~sw request_stream =
     let response_stream = Grpc_eio.Stream.create 16 in
     Eio.Fiber.fork ~sw (fun () ->
       let rec loop () =
@@ -459,28 +459,30 @@ let () =
       loop ());
     response_stream
   in
-  let half_duplex_call request_stream =
-    let requests = ref [] in
-    let rec drain () =
-      match Grpc_eio.Stream.take request_stream with
-      | bytes ->
-        requests := Proto.decode_streaming_output_request bytes :: !requests;
-        drain ()
-      | exception End_of_file -> ()
-    in
-    drain ();
+  let half_duplex_call ~sw request_stream =
     let stream = Grpc_eio.Stream.create 16 in
-    List.iter
-      (fun req ->
-         List.iter
-           (fun p ->
-              if p.Proto.interval_us > 0
-              then Eio.Time.sleep clock (float_of_int p.Proto.interval_us /. 1_000_000.0);
-              let payload = make_payload p.Proto.size in
-              Grpc_eio.Stream.add stream (Proto.encode_streaming_output_response payload))
-           req.Proto.response_parameters)
-      (List.rev !requests);
-    Grpc_eio.Stream.close stream;
+    (* Fork processing so handler returns immediately *)
+    Eio.Fiber.fork ~sw (fun () ->
+      let requests = ref [] in
+      let rec drain () =
+        match Grpc_eio.Stream.take request_stream with
+        | bytes ->
+          requests := Proto.decode_streaming_output_request bytes :: !requests;
+          drain ()
+        | exception End_of_file -> ()
+      in
+      drain ();
+      List.iter
+        (fun req ->
+           List.iter
+             (fun p ->
+                if p.Proto.interval_us > 0
+                then Eio.Time.sleep clock (float_of_int p.Proto.interval_us /. 1_000_000.0);
+                let payload = make_payload p.Proto.size in
+                Grpc_eio.Stream.add stream (Proto.encode_streaming_output_response payload))
+             req.Proto.response_parameters)
+        (List.rev !requests);
+      Grpc_eio.Stream.close stream);
     stream
   in
   let service =

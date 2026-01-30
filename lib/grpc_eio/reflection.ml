@@ -214,37 +214,50 @@ let get_service_info (server : Server.t) (symbol : string) : service_info option
     @param server_ref Reference to the server for service discovery *)
 let to_service (server_ref : Server.t ref) : Service.t =
   (* Bidirectional streaming handler for gRPC Server Reflection v1.
-     With the fixed bidi architecture (proxy_stream pattern), this now works
-     because response_stream is resolved before handler blocks on request_stream. *)
-  let handle_reflection_bidi (request_stream : string Grpc_stream.t) : string Grpc_stream.t =
+     Now takes sw parameter to fork process_loop in separate fiber,
+     allowing handler to return immediately with response_stream. *)
+  let handle_reflection_bidi ~sw (request_stream : string Grpc_stream.t) : string Grpc_stream.t =
     Eio.traceln "[REFLECTION] handler started, creating response_stream";
     let response_stream = Grpc_stream.create 16 in
     let server = !server_ref in
     let services = Server.list_services server in
     Eio.traceln "[REFLECTION] services: %s" (String.concat ", " services);
-    (* Process each request and send response *)
-    let rec process_loop () =
-      try
-        Eio.traceln "[REFLECTION] waiting for request...";
-        let request_bytes = Grpc_stream.take request_stream in
-        Eio.traceln "[REFLECTION] got request, %d bytes" (String.length request_bytes);
-        let response =
-          match parse_request request_bytes with
-          | ListServices -> encode_list_services_response services
-          | FileContainingSymbol symbol ->
-            (match get_service_info server symbol with
-             | Some _info -> encode_list_services_response [ symbol ]
-             | None -> encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
-          | FileByFilename filename ->
-            encode_error_response 5 (Printf.sprintf "FileDescriptor not available for: %s" filename)
-          | Unknown -> encode_error_response 3 "Unknown request type"
-        in
-        Grpc_stream.add response_stream response;
-        process_loop ()
-      with End_of_file ->
-        Grpc_stream.close response_stream
+    (* Process each request and send response - runs in separate fiber *)
+    let process_loop () =
+      let rec loop () =
+        try
+          Eio.traceln "[REFLECTION] waiting for request...";
+          let request_bytes = Grpc_stream.take request_stream in
+          Eio.traceln "[REFLECTION] got request, %d bytes" (String.length request_bytes);
+          let response =
+            match parse_request request_bytes with
+            | ListServices ->
+              Eio.traceln "[REFLECTION] ListServices request";
+              encode_list_services_response services
+            | FileContainingSymbol symbol ->
+              Eio.traceln "[REFLECTION] FileContainingSymbol: %s" symbol;
+              (match get_service_info server symbol with
+               | Some _info -> encode_list_services_response [ symbol ]
+               | None -> encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
+            | FileByFilename filename ->
+              Eio.traceln "[REFLECTION] FileByFilename: %s" filename;
+              encode_error_response 5 (Printf.sprintf "FileDescriptor not available for: %s" filename)
+            | Unknown ->
+              Eio.traceln "[REFLECTION] Unknown request type";
+              encode_error_response 3 "Unknown request type"
+          in
+          Eio.traceln "[REFLECTION] adding response to stream";
+          Grpc_stream.add response_stream response;
+          loop ()
+        with End_of_file ->
+          Eio.traceln "[REFLECTION] request stream EOF, closing response";
+          Grpc_stream.close response_stream
+      in
+      loop ()
     in
-    process_loop ();
+    (* Fork process_loop so handler returns immediately *)
+    Eio.Fiber.fork ~sw process_loop;
+    Eio.traceln "[REFLECTION] returning response_stream immediately";
     response_stream
   in
   Service.create "grpc.reflection.v1.ServerReflection"

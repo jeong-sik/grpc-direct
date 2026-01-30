@@ -85,7 +85,7 @@ val handle_bidi_streaming
   -> reqd:H2.Reqd.t
   -> request_codec:Grpc_core.Codec.t
   -> response_codec:Grpc_core.Codec.t
-  -> handler:(string Grpc_stream.t -> string Grpc_stream.t)
+  -> handler:(sw:Eio.Switch.t -> string Grpc_stream.t -> string Grpc_stream.t)
   -> encodings:string
   -> method_:string
   -> metrics:Metrics.t option

@@ -31,9 +31,12 @@ type unary_handler = string -> string
 type client_streaming_handler = string Grpc_stream.t -> string
 type server_streaming_handler = string -> string Grpc_stream.t
 
-(* Response stream must be closed to end the RPC. *)
-type bidi_handler = string Grpc_stream.t -> string Grpc_stream.t
-(* Response stream must be closed to end the RPC. *)
+(** Bidirectional streaming handler.
+    Takes a switch (for forking internal fibers) and request stream,
+    returns a response stream. Handler should return immediately with
+    the response stream; actual processing can be done in a forked fiber.
+    Response stream must be closed to end the RPC. *)
+type bidi_handler = sw:Eio.Switch.t -> string Grpc_stream.t -> string Grpc_stream.t
 
 (** Method definition *)
 type method_def =

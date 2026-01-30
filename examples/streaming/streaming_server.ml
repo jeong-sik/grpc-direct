@@ -81,7 +81,7 @@ let () =
   @@ fun env ->
   Eio.Switch.run
   @@ fun sw ->
-  let echo_bidi request_stream =
+  let echo_bidi ~sw request_stream =
     let response_stream = Grpc_eio.Stream.create 16 in
     (* Run bidi processing in a fiber so handler returns immediately. *)
     Eio.Fiber.fork ~sw (fun () ->

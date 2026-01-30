@@ -643,7 +643,7 @@ let handle_grpc_websocket
               ~max_size
               ~max_frame_size:config.max_frame_size
           in
-          let response_stream = handler request_stream in
+          let response_stream = handler ~sw request_stream in
           let timeout_seconds = timeout_seconds_of_metadata server metadata in
           send_streaming_response
             ~flow

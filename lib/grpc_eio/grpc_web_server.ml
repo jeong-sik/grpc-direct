@@ -313,7 +313,7 @@ let send_streaming_response
   Http1.finish_chunked flow
 ;;
 
-let handle_grpc_web ~sw:_ ~clock ~server ~config ~flow (req : Http1.request) =
+let handle_grpc_web ~sw ~clock ~server ~config ~flow (req : Http1.request) =
   let encodings = supported_encodings server in
   let content_type =
     Http1.header_value req.headers "content-type" |> Option.value ~default:""
@@ -525,7 +525,7 @@ let handle_grpc_web ~sw:_ ~clock ~server ~config ~flow (req : Http1.request) =
                            (fun msg -> Grpc_stream.add request_stream msg)
                            messages;
                          Grpc_stream.close request_stream;
-                         let response_stream = handler request_stream in
+                         let response_stream = handler ~sw request_stream in
                          let timeout_seconds =
                            timeout_seconds_of_metadata server metadata
                          in

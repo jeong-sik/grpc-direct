@@ -392,24 +392,45 @@ let handle_bidi_streaming
     ensure_response_started ();
     Eio.traceln "[BIDI] Writer: starting write_responses loop";
     write_responses ());
-  (* Handler fiber: create response_stream first, then run handler.
-     This allows Writer to start sending HTTP headers immediately,
-     which is critical for bidirectional streaming where clients
-     wait for server headers before sending request data. *)
+  (* Handler fiber: For bidi streaming, the handler may block on request_stream
+     before returning its response stream. To handle this:
+     1. Create a shared response_stream that handler writes to directly
+     2. Pass it to handler (via closure - handler creates its own but we use proxy)
+     3. Run handler in parallel with reader, using the proxy_stream for output
+
+     Actually, the handler returns a stream it created internally. The issue is
+     that the handler may block before returning. Solution: call handler in its
+     own fiber and use the request_stream as a signal mechanism.
+
+     Simpler solution for bidi: handler should write to response_stream and
+     this fiber copies to client. But handler creates its own stream.
+
+     The cleanest fix: Run handler call and copy loop in PARALLEL fibers,
+     with a promise to coordinate when handler_stream is available. *)
   Eio.Fiber.fork ~sw (fun () ->
     let proxy_stream = Grpc_stream.create 64 in
-    (* Resolve immediately so Writer can start sending headers *)
+    let handler_stream_promise, handler_stream_resolver = Eio.Promise.create () in
+    (* Resolve proxy_stream immediately so Writer can start sending headers *)
     Eio.Promise.resolve response_stream_resolver proxy_stream;
-    (* Run handler in nested fiber - it may block on request_stream *)
+    (* Fiber 1: Run handler (passes sw so handler can fork its own fibers) *)
     Eio.Fiber.fork ~sw (fun () ->
-      let handler_stream = handler request_stream in
-      (* Copy handler's responses to proxy stream *)
+      Eio.traceln "[BIDI] Handler fiber: calling handler with sw";
+      let handler_stream = handler ~sw request_stream in
+      Eio.traceln "[BIDI] Handler fiber: handler returned, resolving promise";
+      Eio.Promise.resolve handler_stream_resolver handler_stream);
+    (* Fiber 2: Copy from handler_stream to proxy_stream (waits for handler) *)
+    Eio.Fiber.fork ~sw (fun () ->
+      Eio.traceln "[BIDI] Copy fiber: waiting for handler_stream";
+      let handler_stream = Eio.Promise.await handler_stream_promise in
+      Eio.traceln "[BIDI] Copy fiber: got handler_stream, starting copy loop";
       let rec copy () =
         match Grpc_stream.take handler_stream with
         | msg ->
+          Eio.traceln "[BIDI] Copy fiber: copying message to proxy";
           Grpc_stream.add proxy_stream msg;
           copy ()
         | exception End_of_file ->
+          Eio.traceln "[BIDI] Copy fiber: EOF, closing proxy_stream";
           Grpc_stream.close proxy_stream
       in
       copy ()));

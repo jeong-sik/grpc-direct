@@ -59,7 +59,7 @@ module EchoService = struct
     Message.to_bytes { Message.seq = !count; content = summary }
   ;;
 
-  let echo_bidi request_stream =
+  let echo_bidi ~sw request_stream =
     let response_stream = Grpc_eio.Stream.create 8 in
     let rec drain () =
       match Grpc_eio.Stream.take request_stream with
@@ -70,7 +70,8 @@ module EchoService = struct
         drain ()
       | exception End_of_file -> Grpc_eio.Stream.close response_stream
     in
-    drain ();
+    (* Fork drain so handler returns immediately *)
+    Eio.Fiber.fork ~sw drain;
     response_stream
   ;;
 end
