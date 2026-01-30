@@ -69,23 +69,19 @@ module Wire = struct
   let error_message = 2
 end
 
-(** Decode a varint from bytes *)
+(** Decode a varint from bytes - returns value directly without raising exceptions *)
 let decode_varint (bytes : string) (pos : int ref) : int =
   let result = ref 0 in
   let shift = ref 0 in
-  while !pos < String.length bytes do
+  let done_ = ref false in
+  while !pos < String.length bytes && not !done_ do
     let byte = Char.code bytes.[!pos] in
     incr pos;
     result := !result lor ((byte land 0x7f) lsl !shift);
     shift := !shift + 7;
-    if byte land 0x80 = 0 then raise Exit
+    if byte land 0x80 = 0 then done_ := true
   done;
   !result
-;;
-
-let[@warning "-32"] _decode_varint_safe bytes pos =
-  try decode_varint bytes pos with
-  | Exit -> 0
 ;;
 
 (** Encode a varint to bytes *)
