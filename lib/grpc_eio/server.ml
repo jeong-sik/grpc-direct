@@ -322,30 +322,21 @@ let request_handler ~sw ~clock (server : t) reqd =
   let open H2 in
   let request = Reqd.request reqd in
   let path = request.target in
-  Eio.traceln "[SERVER] Incoming request: %s" path;
   let encodings = supported_encodings server in
   let content_type =
     Headers.get request.headers "content-type" |> Option.value ~default:""
   in
   if not (String.starts_with ~prefix:"application/grpc" content_type)
-  then (
-    Eio.traceln "[SERVER] Rejected: invalid content-type '%s'" content_type;
+  then
     Reqd.respond_with_string
       reqd
       (Response.create `Unsupported_media_type)
-      "Invalid content-type")
+      "Invalid content-type"
   else (
     match lookup_method server path with
     | Error status ->
-      Eio.traceln "[SERVER] Method lookup failed: %s" status.message;
       Http2_handler.send_error ~reqd ~encodings status
     | Ok (_service, method_def, _) ->
-      Eio.traceln "[SERVER] Method found: %s (type: %s)" method_def.name
-        (match method_def.handler with
-         | `Unary _ -> "unary"
-         | `ServerStreaming _ -> "server_streaming"
-         | `ClientStreaming _ -> "client_streaming"
-         | `Bidi _ -> "bidi_streaming");
       let metadata =
         Headers.fold
           ~f:(fun k v acc -> (String.lowercase_ascii k, v) :: acc)
@@ -521,7 +512,6 @@ let serve ~sw ~env (server : t) : unit =
 
      See: https://github.com/mirleft/ocaml-tls/issues/464 *)
   let handle_connection sock addr =
-    Eio.traceln "[CONN] New connection accepted";
     match tls_server_config with
     | Some tls_config ->
       (* Perform TLS handshake on the accepted socket *)
@@ -534,7 +524,6 @@ let serve ~sw ~env (server : t) : unit =
         addr
         tls_flow
     | None ->
-      Eio.traceln "[CONN] Starting H2 handler (plaintext)";
       h2_handler ~sw addr sock
   in
   while server.running do

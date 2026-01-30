@@ -388,9 +388,7 @@ let handle_bidi_streaming
     (* For bidi streaming: send HTTP 200 headers immediately so client
        can start sending request body. Without this, clients wait for
        server headers before continuing, causing deadlock. *)
-    Eio.traceln "[BIDI] Writer: calling ensure_response_started";
     ensure_response_started ();
-    Eio.traceln "[BIDI] Writer: starting write_responses loop";
     write_responses ());
   (* Handler fiber: For bidi streaming, the handler may block on request_stream
      before returning its response stream. To handle this:
@@ -414,23 +412,17 @@ let handle_bidi_streaming
     Eio.Promise.resolve response_stream_resolver proxy_stream;
     (* Fiber 1: Run handler (passes sw so handler can fork its own fibers) *)
     Eio.Fiber.fork ~sw (fun () ->
-      Eio.traceln "[BIDI] Handler fiber: calling handler with sw";
       let handler_stream = handler ~sw request_stream in
-      Eio.traceln "[BIDI] Handler fiber: handler returned, resolving promise";
       Eio.Promise.resolve handler_stream_resolver handler_stream);
     (* Fiber 2: Copy from handler_stream to proxy_stream (waits for handler) *)
     Eio.Fiber.fork ~sw (fun () ->
-      Eio.traceln "[BIDI] Copy fiber: waiting for handler_stream";
       let handler_stream = Eio.Promise.await handler_stream_promise in
-      Eio.traceln "[BIDI] Copy fiber: got handler_stream, starting copy loop";
       let rec copy () =
         match Grpc_stream.take handler_stream with
         | msg ->
-          Eio.traceln "[BIDI] Copy fiber: copying message to proxy";
           Grpc_stream.add proxy_stream msg;
           copy ()
         | exception End_of_file ->
-          Eio.traceln "[BIDI] Copy fiber: EOF, closing proxy_stream";
           Grpc_stream.close proxy_stream
       in
       copy ()));

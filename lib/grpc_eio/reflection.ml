@@ -121,48 +121,27 @@ let parse_request (data : string) : request =
     let pos = ref 0 in
     let result = ref Unknown in
     while !pos < String.length data do
-      try
-        let tag = decode_varint data pos in
-        let field_num = tag lsr 3 in
-        let wire_type = tag land 7 in
-        Eio.traceln "[PARSE] tag=0x%02x field=%d wire=%d pos=%d" tag field_num wire_type !pos;
-        match wire_type with
-        | 2 ->
-          (* length-delimited *)
-          let len = decode_varint data pos in
-          let value = String.sub data !pos len in
-          pos := !pos + len;
-          Eio.traceln "[PARSE] field %d: len=%d value=%s" field_num len value;
-          (match field_num with
-           | n when n = Wire.req_file_by_filename ->
-             Eio.traceln "[PARSE] -> FileByFilename";
-             result := FileByFilename value
-           | n when n = Wire.req_file_containing_symbol ->
-             Eio.traceln "[PARSE] -> FileContainingSymbol";
-             result := FileContainingSymbol value
-           | n when n = Wire.req_list_services ->
-             Eio.traceln "[PARSE] -> ListServices (field 7)";
-             result := ListServices
-           | _ ->
-             Eio.traceln "[PARSE] -> Unknown field %d" field_num)
-        | 0 ->
-          (* varint *)
-          let _ = decode_varint data pos in
-          ()
-        | _ ->
-          (* Skip unknown wire types *)
-          pos := String.length data
-      with
-      | e ->
-        Eio.traceln "[PARSE] Exception: %s" (Printexc.to_string e);
+      let tag = decode_varint data pos in
+      let field_num = tag lsr 3 in
+      let wire_type = tag land 7 in
+      match wire_type with
+      | 2 ->
+        (* length-delimited *)
+        let len = decode_varint data pos in
+        let value = String.sub data !pos len in
+        pos := !pos + len;
+        (match field_num with
+         | n when n = Wire.req_file_by_filename -> result := FileByFilename value
+         | n when n = Wire.req_file_containing_symbol -> result := FileContainingSymbol value
+         | n when n = Wire.req_list_services -> result := ListServices
+         | _ -> ())
+      | 0 ->
+        (* varint - skip *)
+        let _ = decode_varint data pos in ()
+      | _ ->
+        (* Skip unknown wire types *)
         pos := String.length data
     done;
-    Eio.traceln "[PARSE] Final result: %s"
-      (match !result with
-       | ListServices -> "ListServices"
-       | FileContainingSymbol s -> "FileContainingSymbol(" ^ s ^ ")"
-       | FileByFilename s -> "FileByFilename(" ^ s ^ ")"
-       | Unknown -> "Unknown");
     !result)
 ;;
 
@@ -226,66 +205,38 @@ let get_service_info (server : Server.t) (symbol : string) : service_info option
     @param server_ref Reference to the server for service discovery *)
 let to_service (server_ref : Server.t ref) : Service.t =
   (* Bidirectional streaming handler for gRPC Server Reflection v1.
-     Now takes sw parameter to fork process_loop in separate fiber,
+     Takes sw parameter to fork process_loop in separate fiber,
      allowing handler to return immediately with response_stream. *)
   let handle_reflection_bidi ~sw (request_stream : string Grpc_stream.t) : string Grpc_stream.t =
-    Eio.traceln "[REFLECTION] handler started, creating response_stream";
     let response_stream = Grpc_stream.create 16 in
     let server = !server_ref in
     let services = Server.list_services server in
-    Eio.traceln "[REFLECTION] services: %s" (String.concat ", " services);
     (* Process each request and send response - runs in separate fiber *)
     let process_loop () =
       let rec loop () =
         try
-          Eio.traceln "[REFLECTION] waiting for request...";
           let request_bytes = Grpc_stream.take request_stream in
-          let hex_dump = String.init (String.length request_bytes * 3) (fun i ->
-            let byte_idx = i / 3 in
-            let pos = i mod 3 in
-            if pos = 2 then ' '
-            else
-              let byte = Char.code request_bytes.[byte_idx] in
-              let nibble = if pos = 0 then byte lsr 4 else byte land 0x0f in
-              "0123456789abcdef".[nibble]
-          ) in
-          Eio.traceln "[REFLECTION] got request, %d bytes: [%s]" (String.length request_bytes) hex_dump;
-          let parsed = parse_request request_bytes in
-          Eio.traceln "[REFLECTION] parsed request: %s"
-            (match parsed with
-             | ListServices -> "ListServices"
-             | FileContainingSymbol s -> "FileContainingSymbol(" ^ s ^ ")"
-             | FileByFilename s -> "FileByFilename(" ^ s ^ ")"
-             | Unknown -> "Unknown");
           let response =
-            match parsed with
+            match parse_request request_bytes with
             | ListServices ->
-              Eio.traceln "[REFLECTION] ListServices request";
               encode_list_services_response services
             | FileContainingSymbol symbol ->
-              Eio.traceln "[REFLECTION] FileContainingSymbol: %s" symbol;
               (match get_service_info server symbol with
                | Some _info -> encode_list_services_response [ symbol ]
                | None -> encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
             | FileByFilename filename ->
-              Eio.traceln "[REFLECTION] FileByFilename: %s" filename;
               encode_error_response 5 (Printf.sprintf "FileDescriptor not available for: %s" filename)
             | Unknown ->
-              Eio.traceln "[REFLECTION] Unknown request type";
               encode_error_response 3 "Unknown request type"
           in
-          Eio.traceln "[REFLECTION] adding response to stream";
           Grpc_stream.add response_stream response;
           loop ()
         with End_of_file ->
-          Eio.traceln "[REFLECTION] request stream EOF, closing response";
           Grpc_stream.close response_stream
       in
       loop ()
     in
-    (* Fork process_loop so handler returns immediately *)
     Eio.Fiber.fork ~sw process_loop;
-    Eio.traceln "[REFLECTION] returning response_stream immediately";
     response_stream
   in
   Service.create "grpc.reflection.v1.ServerReflection"
