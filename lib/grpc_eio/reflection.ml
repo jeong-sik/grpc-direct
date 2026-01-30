@@ -228,7 +228,16 @@ let to_service (server_ref : Server.t ref) : Service.t =
         try
           Eio.traceln "[REFLECTION] waiting for request...";
           let request_bytes = Grpc_stream.take request_stream in
-          Eio.traceln "[REFLECTION] got request, %d bytes" (String.length request_bytes);
+          let hex_dump = String.init (String.length request_bytes * 3) (fun i ->
+            let byte_idx = i / 3 in
+            let pos = i mod 3 in
+            if pos = 2 then ' '
+            else
+              let byte = Char.code request_bytes.[byte_idx] in
+              let nibble = if pos = 0 then byte lsr 4 else byte land 0x0f in
+              "0123456789abcdef".[nibble]
+          ) in
+          Eio.traceln "[REFLECTION] got request, %d bytes: [%s]" (String.length request_bytes) hex_dump;
           let response =
             match parse_request request_bytes with
             | ListServices ->
