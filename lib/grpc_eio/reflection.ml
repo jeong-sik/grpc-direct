@@ -129,18 +129,26 @@ let parse_request (data : string) : request =
         let tag = decode_varint data pos in
         let field_num = tag lsr 3 in
         let wire_type = tag land 7 in
+        Eio.traceln "[PARSE] tag=0x%02x field=%d wire=%d pos=%d" tag field_num wire_type !pos;
         match wire_type with
         | 2 ->
           (* length-delimited *)
           let len = decode_varint data pos in
           let value = String.sub data !pos len in
           pos := !pos + len;
+          Eio.traceln "[PARSE] field %d: len=%d value=%s" field_num len value;
           (match field_num with
-           | n when n = Wire.req_file_by_filename -> result := FileByFilename value
+           | n when n = Wire.req_file_by_filename ->
+             Eio.traceln "[PARSE] -> FileByFilename";
+             result := FileByFilename value
            | n when n = Wire.req_file_containing_symbol ->
+             Eio.traceln "[PARSE] -> FileContainingSymbol";
              result := FileContainingSymbol value
-           | n when n = Wire.req_list_services -> result := ListServices
-           | _ -> ())
+           | n when n = Wire.req_list_services ->
+             Eio.traceln "[PARSE] -> ListServices (field 7)";
+             result := ListServices
+           | _ ->
+             Eio.traceln "[PARSE] -> Unknown field %d" field_num)
         | 0 ->
           (* varint *)
           let _ = decode_varint data pos in
@@ -149,8 +157,16 @@ let parse_request (data : string) : request =
           (* Skip unknown wire types *)
           pos := String.length data
       with
-      | _ -> pos := String.length data
+      | e ->
+        Eio.traceln "[PARSE] Exception: %s" (Printexc.to_string e);
+        pos := String.length data
     done;
+    Eio.traceln "[PARSE] Final result: %s"
+      (match !result with
+       | ListServices -> "ListServices"
+       | FileContainingSymbol s -> "FileContainingSymbol(" ^ s ^ ")"
+       | FileByFilename s -> "FileByFilename(" ^ s ^ ")"
+       | Unknown -> "Unknown");
     !result)
 ;;
 
@@ -238,8 +254,15 @@ let to_service (server_ref : Server.t ref) : Service.t =
               "0123456789abcdef".[nibble]
           ) in
           Eio.traceln "[REFLECTION] got request, %d bytes: [%s]" (String.length request_bytes) hex_dump;
+          let parsed = parse_request request_bytes in
+          Eio.traceln "[REFLECTION] parsed request: %s"
+            (match parsed with
+             | ListServices -> "ListServices"
+             | FileContainingSymbol s -> "FileContainingSymbol(" ^ s ^ ")"
+             | FileByFilename s -> "FileByFilename(" ^ s ^ ")"
+             | Unknown -> "Unknown");
           let response =
-            match parse_request request_bytes with
+            match parsed with
             | ListServices ->
               Eio.traceln "[REFLECTION] ListServices request";
               encode_list_services_response services
