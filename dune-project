@@ -18,6 +18,7 @@ Zero dependencies on runtime systems - works with Eio, Lwt, or Async.")
  (depends
   (ocaml (>= 5.1))
   (dune (>= 3.0))
+  (dune-build-info (>= 0.1))
   (decompress (>= 1.5.0))
   (bigstringaf (>= 0.9.0))
   (zstd (>= 0.4))))
