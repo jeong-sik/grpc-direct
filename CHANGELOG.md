@@ -113,6 +113,20 @@ let tls = Tls_config.{ cert_file = "cert.pem"; key_file = "key.pem" } in
 Server.create ~tls () |> Server.serve ~sw ~env
 ```
 
+## [0.1.1] - 2025-01-30
+
+### Fixed
+- **Server Reflection timeout** - `decode_varint` no longer raises `Exit` exception
+  - The exception was being caught by `parse_request`'s outer handler, causing all reflection requests to return "Unknown"
+  - Now uses a `done_` flag instead of exception for control flow
+- **Bidi streaming fiber management** - Handler now receives `~sw` parameter
+  - Allows handlers to fork fibers that properly participate in the switch lifecycle
+  - Fixes potential race conditions in bidirectional streaming
+
+### Changed
+- Removed verbose debug logging (`[PARSE]`, `[BIDI]`, `[CONN]`, `[REFLECTION]`)
+- Kept only essential error logging (`[H2-ERROR]`)
+
 ## [0.1.0] - 2025-01-01
 
 ### Added
