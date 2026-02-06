@@ -27,6 +27,22 @@
  (libraries grpc_eio grpc_core))
 
 (test
+ (name test_retry)
+ (libraries grpc_eio grpc_core eio_main))
+
+(test
+ (name test_balancer)
+ (libraries grpc_eio eio_main))
+
+(test
+ (name test_health)
+ (libraries grpc_eio eio_main))
+
+(test
+ (name test_algorithms)
+ (libraries grpc_eio))
+
+(test
  (name test_h2_frame)
  (libraries h2_lite))
 
@@ -41,7 +57,6 @@
 (test
  (name test_grpc_message)
  (libraries h2_lite))
-
 ;; Test server for debugging :status header issue
 
 (executable

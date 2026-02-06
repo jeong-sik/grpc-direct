@@ -94,3 +94,6 @@ module Grpc_web_client = Grpc_web_client
 
 (** gRPC-Web WebSocket gateway *)
 module Grpc_web_ws_server = Grpc_web_ws_server
+
+(** Algorithms: P2C, RingBuffer, AdaptiveBatching, ExpHistogram, CircuitBreaker *)
+module Algorithms = Algorithms
