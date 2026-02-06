@@ -14,7 +14,8 @@
   grpc_message
   h2_lite)
  (ocamlopt_flags
-  (:standard -O3)))
+  (:standard -O3))
+ (instrumentation (backend bisect_ppx)))
 
 (executable
  (name echo_server)

@@ -21,7 +21,8 @@ Zero dependencies on runtime systems - works with Eio, Lwt, or Async.")
   (dune-build-info (>= 0.1))
   (decompress (>= 1.5.0))
   (bigstringaf (>= 0.9.0))
-  (zstd (>= 0.4))))
+  (zstd (>= 0.4))
+  (bisect_ppx (and :with-test (>= 2.8)))))
 
 (package
  (name grpc-direct)
@@ -39,7 +40,8 @@ Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (digestif (>= 1.1.4))
  ca-certs
  (tls-eio (>= 1.0))
- (mirage-crypto-rng-eio (>= 1.0))))
+ (mirage-crypto-rng-eio (>= 1.0))
+ (bisect_ppx (and :with-test (>= 2.8)))))
 
 (package
  (name grpc-direct-protoc)
@@ -48,4 +50,5 @@ Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (depends
   (ocaml (>= 5.1))
   (dune (>= 3.0))
-  (ocaml-protoc-plugin (>= 6.0))))
+  (ocaml-protoc-plugin (>= 6.0))
+  (bisect_ppx (and :with-test (>= 2.8)))))
