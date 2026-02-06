@@ -26,6 +26,22 @@
  (name test_grpc_web)
  (libraries grpc_eio grpc_core))
 
+(test
+ (name test_h2_frame)
+ (libraries h2_lite))
+
+(test
+ (name test_hpack)
+ (libraries h2_lite))
+
+(test
+ (name test_flow_control)
+ (libraries h2_lite eio eio_main))
+
+(test
+ (name test_grpc_message)
+ (libraries h2_lite))
+
 ;; Test server for debugging :status header issue
 
 (executable
