@@ -13,6 +13,7 @@ depends: [
   "ocaml" {>= "5.1"}
   "dune" {>= "3.0" & >= "3.0"}
   "ocaml-protoc-plugin" {>= "6.0"}
+  "bisect_ppx" {with-test & >= "2.8"}
   "odoc" {with-doc}
 ]
 build: [

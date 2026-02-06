@@ -1,4 +1,5 @@
 (library
  (name grpc_protoc)
  (public_name grpc-direct-protoc.lib)
- (libraries str))
+ (libraries str)
+ (instrumentation (backend bisect_ppx)))

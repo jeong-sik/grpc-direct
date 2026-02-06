@@ -18,6 +18,7 @@ depends: [
   "decompress" {>= "1.5.0"}
   "bigstringaf" {>= "0.9.0"}
   "zstd" {>= "0.4"}
+  "bisect_ppx" {with-test & >= "2.8"}
   "odoc" {with-doc}
 ]
 build: [
