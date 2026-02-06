@@ -60,3 +60,4 @@ module Grpc_web = Grpc_web
 module Grpc_web_server = Grpc_web_server
 module Grpc_web_client = Grpc_web_client
 module Grpc_web_ws_server = Grpc_web_ws_server
+module Algorithms = Algorithms
