@@ -1,5 +1,12 @@
 (library
  (name grpc_core)
  (public_name grpc-direct-core)
- (libraries decompress.de decompress.gz bigstringaf unix zstd dune-build-info)
- (instrumentation (backend bisect_ppx)))
+ (libraries
+  decompress.de
+  decompress.gz
+  bigstringaf
+  unix
+  zstd
+  dune-build-info)
+ (instrumentation
+  (backend bisect_ppx)))

@@ -479,7 +479,9 @@ let () =
                 if p.Proto.interval_us > 0
                 then Eio.Time.sleep clock (float_of_int p.Proto.interval_us /. 1_000_000.0);
                 let payload = make_payload p.Proto.size in
-                Grpc_eio.Stream.add stream (Proto.encode_streaming_output_response payload))
+                Grpc_eio.Stream.add
+                  stream
+                  (Proto.encode_streaming_output_response payload))
              req.Proto.response_parameters)
         (List.rev !requests);
       Grpc_eio.Stream.close stream);

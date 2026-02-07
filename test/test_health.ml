@@ -127,7 +127,8 @@ let test_multiple_services () =
 (* --- Eio-dependent tests --- *)
 
 let test_watch_initial_status () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let h = Health.create () in
   Health.set_status h ~service:"watched" Health.Serving;
   let stream = Health.watch h ~service:"watched" in
@@ -138,7 +139,8 @@ let test_watch_initial_status () =
 ;;
 
 let test_watch_notification () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let h = Health.create () in
   Health.set_status h ~service:"s1" Health.Serving;
   let stream = Health.watch h ~service:"s1" in
@@ -173,8 +175,8 @@ let test_to_service_check_method () =
        let svc_name = "myservice" in
        let request =
          String.make 1 (Char.chr 10)
-         ^ (* tag: field 1, wire type 2 *)
-         String.make 1 (Char.chr (String.length svc_name))
+         (* tag: field 1, wire type 2 *)
+         ^ String.make 1 (Char.chr (String.length svc_name))
          ^ svc_name
        in
        let response2 = handler request in

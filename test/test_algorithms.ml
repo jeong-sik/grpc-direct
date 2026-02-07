@@ -38,9 +38,7 @@ let test_p2c_acquire () =
   assert (v = Some "a" || v = Some "b");
   (* After acquire, one backend should have load=1 *)
   let stats = Algorithms.P2C.stats p in
-  let total_load =
-    Array.fold_left (fun acc (_, load, _, _) -> acc + load) 0 stats
-  in
+  let total_load = Array.fold_left (fun acc (_, load, _, _) -> acc + load) 0 stats in
   assert (total_load = 1);
   Printf.printf "  OK P2C acquire increments load\n%!"
 ;;
@@ -68,9 +66,7 @@ let test_p2c_release () =
    | Some v ->
      Algorithms.P2C.release p v;
      let stats = Algorithms.P2C.stats p in
-     let total_load =
-       Array.fold_left (fun acc (_, load, _, _) -> acc + load) 0 stats
-     in
+     let total_load = Array.fold_left (fun acc (_, load, _, _) -> acc + load) 0 stats in
      assert (total_load = 0)
    | None -> failwith "Unexpected None");
   Printf.printf "  OK P2C release decrements load\n%!"
@@ -177,11 +173,11 @@ let test_ringbuffer_wrap_around () =
   (* Fill and drain multiple times to test wrap-around *)
   for round = 1 to 3 do
     for i = 1 to 16 do
-      assert (Algorithms.RingBuffer.try_push rb (round * 100 + i))
+      assert (Algorithms.RingBuffer.try_push rb ((round * 100) + i))
     done;
     for i = 1 to 16 do
       let v = Algorithms.RingBuffer.try_pop rb in
-      assert (v = Some (round * 100 + i))
+      assert (v = Some ((round * 100) + i))
     done
   done;
   assert (Algorithms.RingBuffer.is_empty rb);
@@ -192,9 +188,7 @@ let test_ringbuffer_wrap_around () =
 
 let test_batching_create () =
   let b = Algorithms.AdaptiveBatching.create () in
-  let batch_size, avg_latency, total_batches =
-    Algorithms.AdaptiveBatching.stats b
-  in
+  let batch_size, avg_latency, total_batches = Algorithms.AdaptiveBatching.stats b in
   assert (batch_size = 1);
   (* default min_batch_size *)
   assert (avg_latency = 0.0);
@@ -239,7 +233,9 @@ let test_batching_accumulates () =
   done;
   let batch_size, _, _ = Algorithms.AdaptiveBatching.stats b in
   assert (batch_size > 1);
-  Printf.printf "  OK AdaptiveBatching low latency increases batch_size to %d\n%!" batch_size
+  Printf.printf
+    "  OK AdaptiveBatching low latency increases batch_size to %d\n%!"
+    batch_size
 ;;
 
 let test_batching_flush () =

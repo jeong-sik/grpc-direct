@@ -132,12 +132,14 @@ let parse_request (data : string) : request =
         pos := !pos + len;
         (match field_num with
          | n when n = Wire.req_file_by_filename -> result := FileByFilename value
-         | n when n = Wire.req_file_containing_symbol -> result := FileContainingSymbol value
+         | n when n = Wire.req_file_containing_symbol ->
+           result := FileContainingSymbol value
          | n when n = Wire.req_list_services -> result := ListServices
          | _ -> ())
       | 0 ->
         (* varint - skip *)
-        let _ = decode_varint data pos in ()
+        let _ = decode_varint data pos in
+        ()
       | _ ->
         (* Skip unknown wire types *)
         pos := String.length data
@@ -207,7 +209,9 @@ let to_service (server_ref : Server.t ref) : Service.t =
   (* Bidirectional streaming handler for gRPC Server Reflection v1.
      Takes sw parameter to fork process_loop in separate fiber,
      allowing handler to return immediately with response_stream. *)
-  let handle_reflection_bidi ~sw (request_stream : string Grpc_stream.t) : string Grpc_stream.t =
+  let handle_reflection_bidi ~sw (request_stream : string Grpc_stream.t)
+    : string Grpc_stream.t
+    =
     let response_stream = Grpc_stream.create 16 in
     let server = !server_ref in
     let services = Server.list_services server in
@@ -218,21 +222,22 @@ let to_service (server_ref : Server.t ref) : Service.t =
           let request_bytes = Grpc_stream.take request_stream in
           let response =
             match parse_request request_bytes with
-            | ListServices ->
-              encode_list_services_response services
+            | ListServices -> encode_list_services_response services
             | FileContainingSymbol symbol ->
               (match get_service_info server symbol with
                | Some _info -> encode_list_services_response [ symbol ]
-               | None -> encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
+               | None ->
+                 encode_error_response 5 (Printf.sprintf "Symbol not found: %s" symbol))
             | FileByFilename filename ->
-              encode_error_response 5 (Printf.sprintf "FileDescriptor not available for: %s" filename)
-            | Unknown ->
-              encode_error_response 3 "Unknown request type"
+              encode_error_response
+                5
+                (Printf.sprintf "FileDescriptor not available for: %s" filename)
+            | Unknown -> encode_error_response 3 "Unknown request type"
           in
           Grpc_stream.add response_stream response;
           loop ()
-        with End_of_file ->
-          Grpc_stream.close response_stream
+        with
+        | End_of_file -> Grpc_stream.close response_stream
       in
       loop ()
     in

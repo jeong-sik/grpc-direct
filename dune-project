@@ -37,6 +37,7 @@ Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
   (eio (>= 1.0))
  (eio_main (>= 1.0))
  (h2-eio (>= 0.13.0))
+ uri
  (digestif (>= 1.1.4))
  ca-certs
  (tls-eio (>= 1.0))

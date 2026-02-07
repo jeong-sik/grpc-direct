@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # Mitigate transient opam download failures (e.g. occasional 5xx from upstream).
+  OPAMRETRIES: 20
+
 jobs:
   h2spec:
     runs-on: ubuntu-latest
@@ -14,15 +18,23 @@ jobs:
         with:
           ocaml-compiler: "5.1"
           opam-depext: true
+      - name: Install dune
+        run: opam install -y dune
       - name: Install OCaml deps
-        run: opam install . --deps-only -y
+        run: |
+          for i in 1 2 3; do
+            opam install . --deps-only -y && exit 0
+            echo "opam install failed (attempt $i), retrying..." >&2
+            sleep 5
+          done
+          exit 1
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.24"
       - name: Install h2spec
         run: go install github.com/summerwind/h2spec/cmd/h2spec@latest
       - name: Run h2spec smoke
-        run: H2SPEC="$HOME/go/bin/h2spec" ./ops/compliance/run_h2spec.sh
+        run: opam exec -- env H2SPEC="$HOME/go/bin/h2spec" ./ops/compliance/run_h2spec.sh
 
   interop_smoke:
     runs-on: ubuntu-latest
@@ -32,10 +44,18 @@ jobs:
         with:
           ocaml-compiler: "5.1"
           opam-depext: true
+      - name: Install dune
+        run: opam install -y dune
       - name: Install OCaml deps
-        run: opam install . --deps-only -y
+        run: |
+          for i in 1 2 3; do
+            opam install . --deps-only -y && exit 0
+            echo "opam install failed (attempt $i), retrying..." >&2
+            sleep 5
+          done
+          exit 1
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.24"
       - name: Run interop smoke
-        run: ./ops/ci/run_interop_smoke.sh
+        run: opam exec -- ./ops/ci/run_interop_smoke.sh

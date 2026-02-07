@@ -6,13 +6,24 @@ open H2_lite
 
 let test_frame_type_roundtrip () =
   let types =
-    [ Frame.Data; Headers; Priority; RstStream; Settings; PushPromise
-    ; Ping; GoAway; WindowUpdate; Continuation; Unknown 42 ]
+    [ Frame.Data
+    ; Headers
+    ; Priority
+    ; RstStream
+    ; Settings
+    ; PushPromise
+    ; Ping
+    ; GoAway
+    ; WindowUpdate
+    ; Continuation
+    ; Unknown 42
+    ]
   in
-  List.iter (fun ft ->
-    let n = Frame.int_of_frame_type ft in
-    let ft' = Frame.frame_type_of_int n in
-    assert (Frame.int_of_frame_type ft' = n))
+  List.iter
+    (fun ft ->
+       let n = Frame.int_of_frame_type ft in
+       let ft' = Frame.frame_type_of_int n in
+       assert (Frame.int_of_frame_type ft' = n))
     types;
   Printf.printf "PASS frame_type_of_int / int_of_frame_type roundtrip\n%!"
 ;;
@@ -87,9 +98,10 @@ let test_parse_header_stream_id_mask () =
 let test_parse_header_too_small () =
   let buf = Cstruct.create 5 in
   (try
-    let _ = Frame.parse_header buf in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ = Frame.parse_header buf in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   Printf.printf "PASS parse_header rejects small buffer\n%!"
 ;;
 
@@ -116,12 +128,12 @@ let test_parse_complete () =
   let frame = Frame.make_data ~stream_id:1l ~end_stream:false payload in
   let wire = Frame.to_cstruct frame in
   (match Frame.parse wire with
-  | Some (f, rem) ->
-    assert (Cstruct.length rem = 0);
-    assert (f.header.length = 5);
-    assert (f.header.frame_type = Data);
-    assert (Cstruct.to_string f.payload = "hello")
-  | None -> assert false);
+   | Some (f, rem) ->
+     assert (Cstruct.length rem = 0);
+     assert (f.header.length = 5);
+     assert (f.header.frame_type = Data);
+     assert (Cstruct.to_string f.payload = "hello")
+   | None -> assert false);
   Printf.printf "PASS parse complete frame\n%!"
 ;;
 
@@ -149,12 +161,12 @@ let test_parse_with_remaining () =
   let frame = Frame.make_data ~stream_id:1l ~end_stream:true payload in
   let wire = Frame.to_cstruct frame in
   let extra = Cstruct.of_string "extra" in
-  let combined = Cstruct.concat [wire; extra] in
+  let combined = Cstruct.concat [ wire; extra ] in
   (match Frame.parse combined with
-  | Some (f, rem) ->
-    assert (Cstruct.to_string f.payload = "abc");
-    assert (Cstruct.to_string rem = "extra")
-  | None -> assert false);
+   | Some (f, rem) ->
+     assert (Cstruct.to_string f.payload = "abc");
+     assert (Cstruct.to_string rem = "extra")
+   | None -> assert false);
   Printf.printf "PASS parse with remaining bytes\n%!"
 ;;
 
@@ -199,8 +211,14 @@ let test_make_headers_with_priority () =
   let priority : Frame.priority_info =
     { exclusive = true; dependency = 0l; weight = 128 }
   in
-  let f = Frame.make_headers_with_priority
-    ~stream_id:3l ~end_stream:false ~end_headers:true ~priority p in
+  let f =
+    Frame.make_headers_with_priority
+      ~stream_id:3l
+      ~end_stream:false
+      ~end_headers:true
+      ~priority
+      p
+  in
   assert (f.header.frame_type = Headers);
   assert (Frame.Flags.is_set f.header.flags Frame.Flags.priority);
   assert (Frame.Flags.is_set f.header.flags Frame.Flags.end_headers);
@@ -212,36 +230,58 @@ let test_make_headers_with_priority () =
 
 let test_make_headers_with_priority_weight_bounds () =
   let p = Cstruct.of_string "x" in
-  let pri w : Frame.priority_info =
-    { exclusive = false; dependency = 0l; weight = w }
-  in
+  let pri w : Frame.priority_info = { exclusive = false; dependency = 0l; weight = w } in
   (* weight = 1 is valid (minimum) *)
-  let _ = Frame.make_headers_with_priority
-    ~stream_id:1l ~end_stream:false ~end_headers:true ~priority:(pri 1) p in
+  let _ =
+    Frame.make_headers_with_priority
+      ~stream_id:1l
+      ~end_stream:false
+      ~end_headers:true
+      ~priority:(pri 1)
+      p
+  in
   (* weight = 256 is valid (maximum) *)
-  let _ = Frame.make_headers_with_priority
-    ~stream_id:1l ~end_stream:false ~end_headers:true ~priority:(pri 256) p in
+  let _ =
+    Frame.make_headers_with_priority
+      ~stream_id:1l
+      ~end_stream:false
+      ~end_headers:true
+      ~priority:(pri 256)
+      p
+  in
   (* weight = 0 is invalid *)
   (try
-    let _ = Frame.make_headers_with_priority
-      ~stream_id:1l ~end_stream:false ~end_headers:true ~priority:(pri 0) p in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ =
+       Frame.make_headers_with_priority
+         ~stream_id:1l
+         ~end_stream:false
+         ~end_headers:true
+         ~priority:(pri 0)
+         p
+     in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   (* weight = 257 is invalid *)
   (try
-    let _ = Frame.make_headers_with_priority
-      ~stream_id:1l ~end_stream:false ~end_headers:true ~priority:(pri 257) p in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ =
+       Frame.make_headers_with_priority
+         ~stream_id:1l
+         ~end_stream:false
+         ~end_headers:true
+         ~priority:(pri 257)
+         p
+     in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   Printf.printf "PASS make_headers_with_priority weight bounds\n%!"
 ;;
 
 (* ── make_priority / parse_priority ──────────────────────────── *)
 
 let test_priority_roundtrip () =
-  let pri : Frame.priority_info =
-    { exclusive = true; dependency = 5l; weight = 200 }
-  in
+  let pri : Frame.priority_info = { exclusive = true; dependency = 5l; weight = 200 } in
   let frame = Frame.make_priority ~stream_id:3l pri in
   assert (frame.header.frame_type = Priority);
   assert (frame.header.length = 5);
@@ -254,9 +294,7 @@ let test_priority_roundtrip () =
 ;;
 
 let test_priority_non_exclusive () =
-  let pri : Frame.priority_info =
-    { exclusive = false; dependency = 10l; weight = 1 }
-  in
+  let pri : Frame.priority_info = { exclusive = false; dependency = 10l; weight = 1 } in
   let frame = Frame.make_priority ~stream_id:1l pri in
   let parsed, _ = Frame.parse_priority frame.payload ~offset:0 in
   assert (parsed.exclusive = false);
@@ -268,9 +306,10 @@ let test_priority_non_exclusive () =
 let test_parse_priority_too_small () =
   let buf = Cstruct.create 3 in
   (try
-    let _ = Frame.parse_priority buf ~offset:0 in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ = Frame.parse_priority buf ~offset:0 in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   Printf.printf "PASS parse_priority rejects small payload\n%!"
 ;;
 
@@ -287,20 +326,25 @@ let test_make_rst_stream () =
 ;;
 
 let test_rst_stream_roundtrip () =
-  let codes = [
-    Frame.Error_code.no_error; Frame.Error_code.protocol_error;
-    Frame.Error_code.internal_error; Frame.Error_code.flow_control_error;
-    Frame.Error_code.cancel; Frame.Error_code.compression_error;
-    Frame.Error_code.http_1_1_required
-  ] in
-  List.iter (fun code ->
-    let f = Frame.make_rst_stream ~stream_id:1l ~error_code:code in
-    let wire = Frame.to_cstruct f in
-    match Frame.parse wire with
-    | Some (f', _) ->
-      assert (f'.header.frame_type = RstStream);
-      assert (Cstruct.BE.get_uint32 f'.payload 0 = code)
-    | None -> assert false)
+  let codes =
+    [ Frame.Error_code.no_error
+    ; Frame.Error_code.protocol_error
+    ; Frame.Error_code.internal_error
+    ; Frame.Error_code.flow_control_error
+    ; Frame.Error_code.cancel
+    ; Frame.Error_code.compression_error
+    ; Frame.Error_code.http_1_1_required
+    ]
+  in
+  List.iter
+    (fun code ->
+       let f = Frame.make_rst_stream ~stream_id:1l ~error_code:code in
+       let wire = Frame.to_cstruct f in
+       match Frame.parse wire with
+       | Some (f', _) ->
+         assert (f'.header.frame_type = RstStream);
+         assert (Cstruct.BE.get_uint32 f'.payload 0 = code)
+       | None -> assert false)
     codes;
   Printf.printf "PASS rst_stream roundtrip for all error codes\n%!"
 ;;
@@ -309,7 +353,9 @@ let test_rst_stream_roundtrip () =
 
 let test_make_ping () =
   let data = Cstruct.create 8 in
-  for i = 0 to 7 do Cstruct.set_uint8 data i (i * 3) done;
+  for i = 0 to 7 do
+    Cstruct.set_uint8 data i (i * 3)
+  done;
   let ping = Frame.make_ping ~ack:false data in
   assert (ping.header.frame_type = Ping);
   assert (ping.header.length = 8);
@@ -322,29 +368,33 @@ let test_make_ping () =
 
 let test_ping_roundtrip () =
   let data = Cstruct.create 8 in
-  for i = 0 to 7 do Cstruct.set_uint8 data i (0xFF - i) done;
+  for i = 0 to 7 do
+    Cstruct.set_uint8 data i (0xFF - i)
+  done;
   let ping = Frame.make_ping ~ack:false data in
   let wire = Frame.to_cstruct ping in
   (match Frame.parse wire with
-  | Some (f, _) ->
-    assert (f.header.frame_type = Ping);
-    for i = 0 to 7 do
-      assert (Cstruct.get_uint8 f.payload i = 0xFF - i)
-    done
-  | None -> assert false);
+   | Some (f, _) ->
+     assert (f.header.frame_type = Ping);
+     for i = 0 to 7 do
+       assert (Cstruct.get_uint8 f.payload i = 0xFF - i)
+     done
+   | None -> assert false);
   Printf.printf "PASS ping roundtrip\n%!"
 ;;
 
 (* ── make_settings ────────────────────────────────────────────── *)
 
 let test_make_settings () =
-  let settings = [
-    (Frame.Settings_id.initial_window_size, 32768l);
-    (Frame.Settings_id.max_frame_size, 16384l);
-  ] in
+  let settings =
+    [ Frame.Settings_id.initial_window_size, 32768l
+    ; Frame.Settings_id.max_frame_size, 16384l
+    ]
+  in
   let f = Frame.make_settings ~ack:false settings in
   assert (f.header.frame_type = Settings);
-  assert (f.header.length = 12);  (* 2 settings * 6 bytes each *)
+  assert (f.header.length = 12);
+  (* 2 settings * 6 bytes each *)
   assert (f.header.stream_id = 0l);
   assert (not (Frame.Flags.is_set f.header.flags Frame.Flags.ack));
   (* Verify first setting *)
@@ -361,23 +411,24 @@ let test_make_settings_ack () =
 ;;
 
 let test_settings_roundtrip () =
-  let settings = [
-    (Frame.Settings_id.header_table_size, 8192l);
-    (Frame.Settings_id.enable_push, 0l);
-    (Frame.Settings_id.max_concurrent_streams, 100l);
-  ] in
+  let settings =
+    [ Frame.Settings_id.header_table_size, 8192l
+    ; Frame.Settings_id.enable_push, 0l
+    ; Frame.Settings_id.max_concurrent_streams, 100l
+    ]
+  in
   let f = Frame.make_settings ~ack:false settings in
   let wire = Frame.to_cstruct f in
   (match Frame.parse wire with
-  | Some (f', _) ->
-    assert (f'.header.frame_type = Settings);
-    assert (f'.header.length = 18);
-    (* Read back settings *)
-    assert (Cstruct.BE.get_uint16 f'.payload 0 = Frame.Settings_id.header_table_size);
-    assert (Cstruct.BE.get_uint32 f'.payload 2 = 8192l);
-    assert (Cstruct.BE.get_uint16 f'.payload 6 = Frame.Settings_id.enable_push);
-    assert (Cstruct.BE.get_uint32 f'.payload 8 = 0l)
-  | None -> assert false);
+   | Some (f', _) ->
+     assert (f'.header.frame_type = Settings);
+     assert (f'.header.length = 18);
+     (* Read back settings *)
+     assert (Cstruct.BE.get_uint16 f'.payload 0 = Frame.Settings_id.header_table_size);
+     assert (Cstruct.BE.get_uint32 f'.payload 2 = 8192l);
+     assert (Cstruct.BE.get_uint16 f'.payload 6 = Frame.Settings_id.enable_push);
+     assert (Cstruct.BE.get_uint32 f'.payload 8 = 0l)
+   | None -> assert false);
   Printf.printf "PASS settings roundtrip\n%!"
 ;;
 
@@ -405,23 +456,26 @@ let test_window_update_roundtrip () =
   let f = Frame.make_window_update ~stream_id:5l ~increment:0x7FFF0000l in
   let wire = Frame.to_cstruct f in
   (match Frame.parse wire with
-  | Some (f', _) ->
-    assert (f'.header.frame_type = WindowUpdate);
-    let inc = Cstruct.BE.get_uint32 f'.payload 0 in
-    assert (Int32.logand inc 0x7FFFFFFFl = 0x7FFF0000l)
-  | None -> assert false);
+   | Some (f', _) ->
+     assert (f'.header.frame_type = WindowUpdate);
+     let inc = Cstruct.BE.get_uint32 f'.payload 0 in
+     assert (Int32.logand inc 0x7FFFFFFFl = 0x7FFF0000l)
+   | None -> assert false);
   Printf.printf "PASS window_update roundtrip\n%!"
 ;;
 
 (* ── make_goaway ──────────────────────────────────────────────── *)
 
 let test_make_goaway () =
-  let f = Frame.make_goaway
-    ~last_stream_id:5l
-    ~error_code:Frame.Error_code.no_error
-    ~debug_data:"test" in
+  let f =
+    Frame.make_goaway
+      ~last_stream_id:5l
+      ~error_code:Frame.Error_code.no_error
+      ~debug_data:"test"
+  in
   assert (f.header.frame_type = GoAway);
-  assert (f.header.length = 12);  (* 4 + 4 + 4 *)
+  assert (f.header.length = 12);
+  (* 4 + 4 + 4 *)
   assert (f.header.stream_id = 0l);
   let last_id = Cstruct.BE.get_uint32 f.payload 0 in
   assert (last_id = 5l);
@@ -432,10 +486,12 @@ let test_make_goaway () =
 
 let test_goaway_debug_data () =
   let debug = "connection error details" in
-  let f = Frame.make_goaway
-    ~last_stream_id:7l
-    ~error_code:Frame.Error_code.protocol_error
-    ~debug_data:debug in
+  let f =
+    Frame.make_goaway
+      ~last_stream_id:7l
+      ~error_code:Frame.Error_code.protocol_error
+      ~debug_data:debug
+  in
   assert (f.header.length = 8 + String.length debug);
   let got = Cstruct.to_string (Cstruct.sub f.payload 8 (String.length debug)) in
   assert (got = debug);
@@ -443,28 +499,32 @@ let test_goaway_debug_data () =
 ;;
 
 let test_goaway_empty_debug () =
-  let f = Frame.make_goaway
-    ~last_stream_id:0l
-    ~error_code:Frame.Error_code.no_error
-    ~debug_data:"" in
+  let f =
+    Frame.make_goaway
+      ~last_stream_id:0l
+      ~error_code:Frame.Error_code.no_error
+      ~debug_data:""
+  in
   assert (f.header.length = 8);
   Printf.printf "PASS goaway empty debug\n%!"
 ;;
 
 let test_goaway_roundtrip () =
-  let f = Frame.make_goaway
-    ~last_stream_id:99l
-    ~error_code:Frame.Error_code.enhance_your_calm
-    ~debug_data:"rate limit" in
+  let f =
+    Frame.make_goaway
+      ~last_stream_id:99l
+      ~error_code:Frame.Error_code.enhance_your_calm
+      ~debug_data:"rate limit"
+  in
   let wire = Frame.to_cstruct f in
   (match Frame.parse wire with
-  | Some (f', _) ->
-    assert (f'.header.frame_type = GoAway);
-    assert (Cstruct.BE.get_uint32 f'.payload 0 = 99l);
-    assert (Cstruct.BE.get_uint32 f'.payload 4 = Frame.Error_code.enhance_your_calm);
-    let dbg = Cstruct.to_string (Cstruct.sub f'.payload 8 10) in
-    assert (dbg = "rate limit")
-  | None -> assert false);
+   | Some (f', _) ->
+     assert (f'.header.frame_type = GoAway);
+     assert (Cstruct.BE.get_uint32 f'.payload 0 = 99l);
+     assert (Cstruct.BE.get_uint32 f'.payload 4 = Frame.Error_code.enhance_your_calm);
+     let dbg = Cstruct.to_string (Cstruct.sub f'.payload 8 10) in
+     assert (dbg = "rate limit")
+   | None -> assert false);
   Printf.printf "PASS goaway roundtrip\n%!"
 ;;
 
@@ -472,8 +532,13 @@ let test_goaway_roundtrip () =
 
 let test_make_push_promise () =
   let hdr_block = Cstruct.of_string "headers" in
-  let f = Frame.make_push_promise
-    ~stream_id:1l ~promised_stream_id:2l ~end_headers:true hdr_block in
+  let f =
+    Frame.make_push_promise
+      ~stream_id:1l
+      ~promised_stream_id:2l
+      ~end_headers:true
+      hdr_block
+  in
   assert (f.header.frame_type = PushPromise);
   assert (f.header.length = 4 + 7);
   assert (Frame.Flags.is_set f.header.flags Frame.Flags.end_headers);
@@ -498,8 +563,13 @@ let test_make_continuation () =
 
 let test_headers_fragmented_single () =
   let block = Cstruct.create 50 in
-  let frames = Frame.make_headers_fragmented
-    ~stream_id:1l ~end_stream:false ~max_frame_size:100 block in
+  let frames =
+    Frame.make_headers_fragmented
+      ~stream_id:1l
+      ~end_stream:false
+      ~max_frame_size:100
+      block
+  in
   assert (List.length frames = 1);
   let f = List.hd frames in
   assert (f.header.frame_type = Headers);
@@ -509,9 +579,12 @@ let test_headers_fragmented_single () =
 
 let test_headers_fragmented_multi () =
   let block = Cstruct.create 250 in
-  for i = 0 to 249 do Cstruct.set_uint8 block i (i mod 256) done;
-  let frames = Frame.make_headers_fragmented
-    ~stream_id:3l ~end_stream:true ~max_frame_size:100 block in
+  for i = 0 to 249 do
+    Cstruct.set_uint8 block i (i mod 256)
+  done;
+  let frames =
+    Frame.make_headers_fragmented ~stream_id:3l ~end_stream:true ~max_frame_size:100 block
+  in
   assert (List.length frames = 3);
   (* First = HEADERS *)
   let first = List.hd frames in
@@ -527,19 +600,24 @@ let test_headers_fragmented_multi () =
   assert (last.header.frame_type = Continuation);
   assert (Frame.Flags.is_set last.header.flags Frame.Flags.end_headers);
   (* Data integrity *)
-  let total_payload = List.fold_left (fun acc f ->
-    acc + Cstruct.length f.Frame.payload) 0 frames in
+  let total_payload =
+    List.fold_left (fun acc f -> acc + Cstruct.length f.Frame.payload) 0 frames
+  in
   assert (total_payload = 250);
   Printf.printf "PASS headers_fragmented multi\n%!"
 ;;
 
 let test_headers_fragmented_with_priority () =
   let block = Cstruct.create 200 in
-  let pri : Frame.priority_info =
-    { exclusive = false; dependency = 0l; weight = 16 }
+  let pri : Frame.priority_info = { exclusive = false; dependency = 0l; weight = 16 } in
+  let frames =
+    Frame.make_headers_fragmented
+      ~stream_id:1l
+      ~end_stream:false
+      ~max_frame_size:100
+      ~priority:pri
+      block
   in
-  let frames = Frame.make_headers_fragmented
-    ~stream_id:1l ~end_stream:false ~max_frame_size:100 ~priority:pri block in
   (* first frame gets max_frame_size - 5 (priority) = 95 bytes of header data,
      plus 5 priority = 100 total payload *)
   let first = List.hd frames in
@@ -554,8 +632,13 @@ let test_headers_fragmented_with_priority () =
 
 let test_push_promise_fragmented_single () =
   let block = Cstruct.create 50 in
-  let frames = Frame.make_push_promise_fragmented
-    ~stream_id:1l ~promised_stream_id:2l ~max_frame_size:100 block in
+  let frames =
+    Frame.make_push_promise_fragmented
+      ~stream_id:1l
+      ~promised_stream_id:2l
+      ~max_frame_size:100
+      block
+  in
   assert (List.length frames = 1);
   let f = List.hd frames in
   assert (f.header.frame_type = PushPromise);
@@ -565,8 +648,13 @@ let test_push_promise_fragmented_single () =
 
 let test_push_promise_fragmented_multi () =
   let block = Cstruct.create 200 in
-  let frames = Frame.make_push_promise_fragmented
-    ~stream_id:1l ~promised_stream_id:2l ~max_frame_size:100 block in
+  let frames =
+    Frame.make_push_promise_fragmented
+      ~stream_id:1l
+      ~promised_stream_id:2l
+      ~max_frame_size:100
+      block
+  in
   assert (List.length frames >= 2);
   let first = List.hd frames in
   assert (first.header.frame_type = PushPromise);
@@ -620,26 +708,32 @@ let test_settings_ids () =
 (* ── All frame types roundtrip via serialize/parse ────────────── *)
 
 let test_all_frame_types_roundtrip () =
-  let frames = [
-    Frame.make_data ~stream_id:1l ~end_stream:true (Cstruct.of_string "data");
-    Frame.make_headers ~stream_id:3l ~end_stream:false ~end_headers:true
-      (Cstruct.of_string "hdr");
-    Frame.make_rst_stream ~stream_id:5l ~error_code:Frame.Error_code.cancel;
-    Frame.make_ping ~ack:false (Cstruct.create 8);
-    Frame.make_settings ~ack:false [(0x4, 32768l)];
-    Frame.make_window_update ~stream_id:0l ~increment:1000l;
-    Frame.make_goaway ~last_stream_id:0l ~error_code:0l ~debug_data:"";
-    Frame.make_continuation ~stream_id:1l ~end_headers:true (Cstruct.of_string "cont");
-  ] in
-  List.iter (fun f ->
-    let wire = Frame.to_cstruct f in
-    match Frame.parse wire with
-    | Some (f', _) ->
-      assert (Frame.int_of_frame_type f'.header.frame_type
-             = Frame.int_of_frame_type f.header.frame_type);
-      assert (f'.header.length = f.header.length);
-      assert (f'.header.stream_id = f.header.stream_id)
-    | None -> assert false)
+  let frames =
+    [ Frame.make_data ~stream_id:1l ~end_stream:true (Cstruct.of_string "data")
+    ; Frame.make_headers
+        ~stream_id:3l
+        ~end_stream:false
+        ~end_headers:true
+        (Cstruct.of_string "hdr")
+    ; Frame.make_rst_stream ~stream_id:5l ~error_code:Frame.Error_code.cancel
+    ; Frame.make_ping ~ack:false (Cstruct.create 8)
+    ; Frame.make_settings ~ack:false [ 0x4, 32768l ]
+    ; Frame.make_window_update ~stream_id:0l ~increment:1000l
+    ; Frame.make_goaway ~last_stream_id:0l ~error_code:0l ~debug_data:""
+    ; Frame.make_continuation ~stream_id:1l ~end_headers:true (Cstruct.of_string "cont")
+    ]
+  in
+  List.iter
+    (fun f ->
+       let wire = Frame.to_cstruct f in
+       match Frame.parse wire with
+       | Some (f', _) ->
+         assert (
+           Frame.int_of_frame_type f'.header.frame_type
+           = Frame.int_of_frame_type f.header.frame_type);
+         assert (f'.header.length = f.header.length);
+         assert (f'.header.stream_id = f.header.stream_id)
+       | None -> assert false)
     frames;
   Printf.printf "PASS all frame types roundtrip\n%!"
 ;;
@@ -649,16 +743,18 @@ let test_all_frame_types_roundtrip () =
 let test_large_payload_roundtrip () =
   let size = Frame.max_frame_size in
   let payload = Cstruct.create size in
-  for i = 0 to size - 1 do Cstruct.set_uint8 payload i (i land 0xFF) done;
+  for i = 0 to size - 1 do
+    Cstruct.set_uint8 payload i (i land 0xFF)
+  done;
   let f = Frame.make_data ~stream_id:1l ~end_stream:false payload in
   let wire = Frame.to_cstruct f in
   (match Frame.parse wire with
-  | Some (f', _) ->
-    assert (f'.header.length = size);
-    for i = 0 to size - 1 do
-      assert (Cstruct.get_uint8 f'.payload i = (i land 0xFF))
-    done
-  | None -> assert false);
+   | Some (f', _) ->
+     assert (f'.header.length = size);
+     for i = 0 to size - 1 do
+       assert (Cstruct.get_uint8 f'.payload i = i land 0xFF)
+     done
+   | None -> assert false);
   Printf.printf "PASS large payload roundtrip (%d bytes)\n%!" size
 ;;
 
