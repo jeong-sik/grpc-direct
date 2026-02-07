@@ -29,25 +29,49 @@ let make_echo_service () =
 
 (** Run ghz benchmark and parse results *)
 let run_ghz_benchmark ~label =
-  let cmd =
-    Printf.sprintf
-      "ghz --insecure --proto bench/go-comparison/echo.proto --call echo.Echo/Echo -d \
-       '{\"message\":\"hello\"}' -n %d -c %d --connections 10 127.0.0.1:%d 2>&1"
-      total_requests
-      concurrency
-      port
+  let argv =
+    [| "ghz"
+     ; "--insecure"
+     ; "--proto"
+     ; "bench/go-comparison/echo.proto"
+     ; "--call"
+     ; "echo.Echo/Echo"
+     ; "-d"
+     ; "{\"message\":\"hello\"}"
+     ; "-n"
+     ; string_of_int total_requests
+     ; "-c"
+     ; string_of_int concurrency
+     ; "--connections"
+     ; "10"
+     ; Printf.sprintf "127.0.0.1:%d" port
+    |]
   in
   Printf.printf "\n📊 Running benchmark: %s\n%!" label;
-  let ic = Unix.open_process_in cmd in
-  let output = Buffer.create 1024 in
-  (try
-     while true do
-       Buffer.add_string output (input_line ic ^ "\n")
-     done
-   with
-   | End_of_file -> ());
-  ignore (Unix.close_process_in ic);
-  let result = Buffer.contents output in
+  let result =
+    try
+      (* Merge stdout/stderr (equivalent to `2>&1`) without spawning a shell. *)
+      let stdout_r, stdout_w = Unix.pipe () in
+      let pid = Unix.create_process "ghz" argv Unix.stdin stdout_w stdout_w in
+      Unix.close stdout_w;
+      let ic = Unix.in_channel_of_descr stdout_r in
+      let output = Buffer.create 1024 in
+      (try
+         while true do
+           Buffer.add_string output (input_line ic);
+           Buffer.add_char output '\n'
+         done
+       with
+       | End_of_file -> ());
+      close_in ic;
+      ignore (Unix.waitpid [] pid);
+      Buffer.contents output
+    with
+    | Unix.Unix_error (Unix.ENOENT, _, _) ->
+      "ghz not available (skipping benchmark output parsing)\n"
+    | exn ->
+      Printf.sprintf "failed to run ghz: %s\n" (Printexc.to_string exn)
+  in
   (* Parse key metrics *)
   let parse_metric pattern =
     try

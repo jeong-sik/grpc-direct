@@ -53,14 +53,46 @@ let create_test_certs () =
   (* Create self-signed test certificates using openssl *)
   let cert_file = Filename.temp_file "test_cert" ".pem" in
   let key_file = Filename.temp_file "test_key" ".pem" in
-  let cmd =
-    Printf.sprintf
-      "openssl req -x509 -newkey rsa:2048 -keyout %s -out %s -days 1 -nodes -subj \
-       '/CN=localhost' 2>/dev/null"
-      key_file
-      cert_file
+  let cleanup () =
+    (try Sys.remove cert_file with
+     | _ -> ());
+    try Sys.remove key_file with
+    | _ -> ()
   in
-  if Sys.command cmd = 0 then Some (cert_file, key_file) else None
+  let argv =
+    [| "openssl"
+     ; "req"
+     ; "-x509"
+     ; "-newkey"
+     ; "rsa:2048"
+     ; "-keyout"
+     ; key_file
+     ; "-out"
+     ; cert_file
+     ; "-days"
+     ; "1"
+     ; "-nodes"
+     ; "-subj"
+     ; "/CN=localhost"
+    |]
+  in
+  try
+    let devnull = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0o666 in
+    let pid = Unix.create_process "openssl" argv Unix.stdin devnull devnull in
+    Unix.close devnull;
+    let (_pid, status) = Unix.waitpid [] pid in
+    match status with
+    | Unix.WEXITED 0 -> Some (cert_file, key_file)
+    | _ ->
+      cleanup ();
+      None
+  with
+  | Unix.Unix_error (Unix.ENOENT, _, _) ->
+    cleanup ();
+    None
+  | _ ->
+    cleanup ();
+    None
 ;;
 
 let cleanup_test_certs cert_file key_file =
