@@ -20,7 +20,7 @@ jobs:
         run: opam install . --deps-only -y
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.24"
       - name: Install h2spec
         run: go install github.com/summerwind/h2spec/cmd/h2spec@latest
       - name: Run h2spec smoke
@@ -40,6 +40,6 @@ jobs:
         run: opam install . --deps-only -y
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.24"
       - name: Run interop smoke
         run: opam exec -- ./ops/ci/run_interop_smoke.sh
