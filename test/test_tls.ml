@@ -80,7 +80,7 @@ let create_test_certs () =
     let devnull = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0o666 in
     let pid = Unix.create_process "openssl" argv Unix.stdin devnull devnull in
     Unix.close devnull;
-    let (_pid, status) = Unix.waitpid [] pid in
+    let _pid, status = Unix.waitpid [] pid in
     match status with
     | Unix.WEXITED 0 -> Some (cert_file, key_file)
     | _ ->

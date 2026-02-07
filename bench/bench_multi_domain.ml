@@ -69,8 +69,7 @@ let run_ghz_benchmark ~label =
     with
     | Unix.Unix_error (Unix.ENOENT, _, _) ->
       "ghz not available (skipping benchmark output parsing)\n"
-    | exn ->
-      Printf.sprintf "failed to run ghz: %s\n" (Printexc.to_string exn)
+    | exn -> Printf.sprintf "failed to run ghz: %s\n" (Printexc.to_string exn)
   in
   (* Parse key metrics *)
   let parse_metric pattern =

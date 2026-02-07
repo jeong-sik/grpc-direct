@@ -97,9 +97,7 @@ let test_calculate_backoff_exponential () =
 ;;
 
 let test_calculate_backoff_capped () =
-  let p =
-    { Retry.default_policy with jitter = 0.0; max_backoff = 0.3 }
-  in
+  let p = { Retry.default_policy with jitter = 0.0; max_backoff = 0.3 } in
   (* attempt 0: min(0.1, 0.3) = 0.1 *)
   let b0 = Retry.calculate_backoff p 0 in
   assert (abs_float (b0 -. 0.1) < 0.001);
@@ -118,8 +116,8 @@ let test_calculate_backoff_jitter_range () =
   (* For attempt 0, base = 0.1 -> range [0.08, 0.12] *)
   for _ = 1 to 50 do
     let b = Retry.calculate_backoff p 0 in
-    assert (b >= 0.1 *. 0.8 -. 0.001);
-    assert (b <= 0.1 *. 1.2 +. 0.001)
+    assert (b >= (0.1 *. 0.8) -. 0.001);
+    assert (b <= (0.1 *. 1.2) +. 0.001)
   done;
   Printf.printf "  OK calculate_backoff jitter in range\n%!"
 ;;
@@ -154,7 +152,8 @@ let test_budget_try_acquire () =
 (* --- Eio-dependent tests --- *)
 
 let test_with_retry_immediate_success () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let call_count = ref 0 in
   let result =
     Retry.with_retry (fun () ->
@@ -167,19 +166,15 @@ let test_with_retry_immediate_success () =
 ;;
 
 let test_with_retry_retryable_then_success () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let call_count = ref 0 in
-  let policy =
-    { Retry.default_policy with initial_backoff = 0.001; jitter = 0.0 }
-  in
+  let policy = { Retry.default_policy with initial_backoff = 0.001; jitter = 0.0 } in
   let result =
     Retry.with_retry ~policy (fun () ->
       incr call_count;
       if !call_count < 2
-      then
-        Error
-          Grpc_core.Status.
-            { code = Unavailable; message = "down"; details = None }
+      then Error Grpc_core.Status.{ code = Unavailable; message = "down"; details = None }
       else Ok "recovered")
   in
   assert (result = Ok "recovered");
@@ -188,14 +183,13 @@ let test_with_retry_retryable_then_success () =
 ;;
 
 let test_with_retry_non_retryable () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let call_count = ref 0 in
   let result =
     Retry.with_retry (fun () ->
       incr call_count;
-      Error
-        Grpc_core.Status.
-          { code = Not_found; message = "not found"; details = None })
+      Error Grpc_core.Status.{ code = Not_found; message = "not found"; details = None })
   in
   (match result with
    | Error s -> assert (s.code = Grpc_core.Status.Not_found)
@@ -205,21 +199,16 @@ let test_with_retry_non_retryable () =
 ;;
 
 let test_with_retry_max_attempts () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let call_count = ref 0 in
   let policy =
-    { Retry.default_policy with
-      max_attempts = 3
-    ; initial_backoff = 0.001
-    ; jitter = 0.0
-    }
+    { Retry.default_policy with max_attempts = 3; initial_backoff = 0.001; jitter = 0.0 }
   in
   let result =
     Retry.with_retry ~policy (fun () ->
       incr call_count;
-      Error
-        Grpc_core.Status.
-          { code = Unavailable; message = "down"; details = None })
+      Error Grpc_core.Status.{ code = Unavailable; message = "down"; details = None })
   in
   (match result with
    | Error s -> assert (s.code = Grpc_core.Status.Unavailable)
@@ -230,12 +219,11 @@ let test_with_retry_max_attempts () =
 ;;
 
 let test_with_retry_on_retry_callback () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let retry_log = ref [] in
   let call_count = ref 0 in
-  let policy =
-    { Retry.default_policy with initial_backoff = 0.001; jitter = 0.0 }
-  in
+  let policy = { Retry.default_policy with initial_backoff = 0.001; jitter = 0.0 } in
   let on_retry attempt status _backoff =
     retry_log := (attempt, status.Grpc_core.Status.code) :: !retry_log
   in
@@ -243,10 +231,7 @@ let test_with_retry_on_retry_callback () =
     Retry.with_retry ~policy ~on_retry (fun () ->
       incr call_count;
       if !call_count < 3
-      then
-        Error
-          Grpc_core.Status.
-            { code = Unavailable; message = "down"; details = None }
+      then Error Grpc_core.Status.{ code = Unavailable; message = "down"; details = None }
       else Ok "ok")
   in
   assert (List.length !retry_log = 2);
@@ -254,7 +239,8 @@ let test_with_retry_on_retry_callback () =
 ;;
 
 let test_with_budget_success () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let budget = Retry.Budget.create ~max_budget:10 () in
   let result = Retry.with_budget ~budget (fun () -> Ok "ok") in
   assert (result = Ok "ok");
@@ -262,22 +248,17 @@ let test_with_budget_success () =
 ;;
 
 let test_with_budget_exhausted () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let budget = Retry.Budget.create ~max_budget:1 () in
   let call_count = ref 0 in
   let policy =
-    { Retry.default_policy with
-      max_attempts = 5
-    ; initial_backoff = 0.001
-    ; jitter = 0.0
-    }
+    { Retry.default_policy with max_attempts = 5; initial_backoff = 0.001; jitter = 0.0 }
   in
   let result =
     Retry.with_budget ~policy ~budget (fun () ->
       incr call_count;
-      Error
-        Grpc_core.Status.
-          { code = Unavailable; message = "down"; details = None })
+      Error Grpc_core.Status.{ code = Unavailable; message = "down"; details = None })
   in
   (match result with
    | Error s -> assert (s.code = Grpc_core.Status.Unavailable)

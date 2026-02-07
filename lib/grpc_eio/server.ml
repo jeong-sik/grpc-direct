@@ -334,8 +334,7 @@ let request_handler ~sw ~clock (server : t) reqd =
       "Invalid content-type"
   else (
     match lookup_method server path with
-    | Error status ->
-      Http2_handler.send_error ~reqd ~encodings status
+    | Error status -> Http2_handler.send_error ~reqd ~encodings status
     | Ok (_service, method_def, _) ->
       let metadata =
         Headers.fold
@@ -523,8 +522,7 @@ let serve ~sw ~env (server : t) : unit =
         ~sw
         addr
         tls_flow
-    | None ->
-      h2_handler ~sw addr sock
+    | None -> h2_handler ~sw addr sock
   in
   while server.running do
     Eio.Net.accept_fork

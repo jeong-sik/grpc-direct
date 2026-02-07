@@ -48,8 +48,8 @@ let test_entry_size () =
 ;;
 
 let test_header_list_size () =
-  let headers = [("name", "value"); ("foo", "bar")] in
-  let expected = (4 + 5 + 32) + (3 + 3 + 32) in
+  let headers = [ "name", "value"; "foo", "bar" ] in
+  let expected = 4 + 5 + 32 + (3 + 3 + 32) in
   assert (Hpack.header_list_size headers = expected);
   assert (Hpack.header_list_size [] = 0);
   Printf.printf "PASS header_list_size\n%!"
@@ -96,9 +96,10 @@ let test_set_max_size () =
 let test_set_max_size_negative () =
   let ctx = Hpack.create () in
   (try
-    Hpack.set_max_size ctx (-1);
-    assert false
-  with Invalid_argument _ -> ());
+     Hpack.set_max_size ctx (-1);
+     assert false
+   with
+   | Invalid_argument _ -> ());
   Printf.printf "PASS set_max_size rejects negative\n%!"
 ;;
 
@@ -107,12 +108,12 @@ let test_set_max_size_negative () =
 let test_lookup_static_name () =
   (* ":method" is in static table *)
   (match Hpack.lookup_static_name ":method" with
-  | Some idx -> assert (idx >= 1 && idx <= 3)
-  | None -> assert false);
+   | Some idx -> assert (idx >= 1 && idx <= 3)
+   | None -> assert false);
   (* "content-type" is at index 31 *)
   (match Hpack.lookup_static_name "content-type" with
-  | Some idx -> assert (idx = 31)
-  | None -> assert false);
+   | Some idx -> assert (idx = 31)
+   | None -> assert false);
   (* Unknown name *)
   assert (Hpack.lookup_static_name "x-custom" = None);
   Printf.printf "PASS lookup_static_name\n%!"
@@ -121,12 +122,12 @@ let test_lookup_static_name () =
 let test_lookup_static () =
   (* :method POST = index 3 *)
   (match Hpack.lookup_static ":method" "POST" with
-  | Some idx -> assert (idx = 3)
-  | None -> assert false);
+   | Some idx -> assert (idx = 3)
+   | None -> assert false);
   (* :status 200 = index 8 *)
   (match Hpack.lookup_static ":status" "200" with
-  | Some idx -> assert (idx = 8)
-  | None -> assert false);
+   | Some idx -> assert (idx = 8)
+   | None -> assert false);
   (* Empty value never matches *)
   assert (Hpack.lookup_static ":authority" "" = None);
   (* Non-existent pair *)
@@ -139,8 +140,8 @@ let test_lookup_dynamic () =
   Hpack.add_entry ctx "x-custom" "value1";
   (* Dynamic table entry at index 62 (61 static + 1) *)
   (match Hpack.lookup_dynamic ctx "x-custom" "value1" with
-  | Some idx -> assert (idx = 62)
-  | None -> assert false);
+   | Some idx -> assert (idx = 62)
+   | None -> assert false);
   (* Non-matching value *)
   assert (Hpack.lookup_dynamic ctx "x-custom" "value2" = None);
   Printf.printf "PASS lookup_dynamic\n%!"
@@ -150,13 +151,13 @@ let test_lookup () =
   let ctx = Hpack.create () in
   (* Static match *)
   (match Hpack.lookup ctx ":method" "POST" with
-  | Some idx -> assert (idx = 3)
-  | None -> assert false);
+   | Some idx -> assert (idx = 3)
+   | None -> assert false);
   (* Dynamic match *)
   Hpack.add_entry ctx "x-custom" "val";
   (match Hpack.lookup ctx "x-custom" "val" with
-  | Some idx -> assert (idx = 62)
-  | None -> assert false);
+   | Some idx -> assert (idx = 62)
+   | None -> assert false);
   Printf.printf "PASS lookup\n%!"
 ;;
 
@@ -199,27 +200,36 @@ let test_encode_decode_integer_boundary () =
 let test_encode_decode_integer_with_prefix () =
   let buf = Cstruct.create 16 in
   (* Indexed header (0x80 prefix, 7-bit prefix) *)
-  let off = Hpack.encode_integer_with_prefix buf
-    ~offset:0 ~prefix_byte:0x80 ~prefix_bits:7 ~value:3 in
+  let off =
+    Hpack.encode_integer_with_prefix
+      buf
+      ~offset:0
+      ~prefix_byte:0x80
+      ~prefix_bits:7
+      ~value:3
+  in
   assert (off = 1);
   let byte0 = Cstruct.get_uint8 buf 0 in
-  assert (byte0 = 0x83);  (* 0x80 | 3 *)
+  assert (byte0 = 0x83);
+  (* 0x80 | 3 *)
   let v, _ = Hpack.decode_integer buf ~offset:0 ~prefix_bits:7 in
   assert (v = 3);
   Printf.printf "PASS encode_integer_with_prefix\n%!"
 ;;
 
 let test_encode_decode_integer_various_prefix_bits () =
-  let values = [0; 1; 30; 31; 127; 128; 255; 1000; 65535] in
-  let prefix_bits_list = [4; 5; 6; 7] in
-  List.iter (fun prefix_bits ->
-    List.iter (fun value ->
-      let buf = Cstruct.create 16 in
-      let off = Hpack.encode_integer buf ~offset:0 ~prefix_bits ~value in
-      let v, off' = Hpack.decode_integer buf ~offset:0 ~prefix_bits in
-      assert (v = value);
-      assert (off' = off))
-      values)
+  let values = [ 0; 1; 30; 31; 127; 128; 255; 1000; 65535 ] in
+  let prefix_bits_list = [ 4; 5; 6; 7 ] in
+  List.iter
+    (fun prefix_bits ->
+       List.iter
+         (fun value ->
+            let buf = Cstruct.create 16 in
+            let off = Hpack.encode_integer buf ~offset:0 ~prefix_bits ~value in
+            let v, off' = Hpack.decode_integer buf ~offset:0 ~prefix_bits in
+            assert (v = value);
+            assert (off' = off))
+         values)
     prefix_bits_list;
   Printf.printf "PASS encode/decode integer various prefix bits\n%!"
 ;;
@@ -245,16 +255,30 @@ let test_huffman_roundtrip_ascii () =
 ;;
 
 let test_huffman_roundtrip_grpc_headers () =
-  let headers = [
-    "POST"; "http"; "https"; "/echo.EchoService/Echo";
-    "application/grpc"; "trailers"; "identity"; "gzip";
-    "localhost:50051"; "200"; "0"; "grpc-status";
-    "content-type"; "te"; "user-agent"; "grpc-go/1.50.0"
-  ] in
-  List.iter (fun h ->
-    let encoded = Hpack.Huffman.encode h in
-    let decoded = Hpack.Huffman.decode encoded in
-    assert (decoded = h))
+  let headers =
+    [ "POST"
+    ; "http"
+    ; "https"
+    ; "/echo.EchoService/Echo"
+    ; "application/grpc"
+    ; "trailers"
+    ; "identity"
+    ; "gzip"
+    ; "localhost:50051"
+    ; "200"
+    ; "0"
+    ; "grpc-status"
+    ; "content-type"
+    ; "te"
+    ; "user-agent"
+    ; "grpc-go/1.50.0"
+    ]
+  in
+  List.iter
+    (fun h ->
+       let encoded = Hpack.Huffman.encode h in
+       let decoded = Hpack.Huffman.decode encoded in
+       assert (decoded = h))
     headers;
   Printf.printf "PASS Huffman roundtrip gRPC headers\n%!"
 ;;
@@ -264,17 +288,17 @@ let test_huffman_compression () =
   let s = "www.example.com" in
   let encoded = Hpack.Huffman.encode s in
   assert (String.length encoded < String.length s);
-  Printf.printf "PASS Huffman compression (www.example.com: %d -> %d bytes)\n%!"
-    (String.length s) (String.length encoded)
+  Printf.printf
+    "PASS Huffman compression (www.example.com: %d -> %d bytes)\n%!"
+    (String.length s)
+    (String.length encoded)
 ;;
 
 let test_huffman_table_sanity () =
   (* Verify table has 256 entries *)
   assert (Array.length Hpack.Huffman.table = 256);
   (* All code lengths should be 5-30 bits *)
-  Array.iter (fun (_code, len) ->
-    assert (len >= 5 && len <= 30))
-    Hpack.Huffman.table;
+  Array.iter (fun (_code, len) -> assert (len >= 5 && len <= 30)) Hpack.Huffman.table;
   Printf.printf "PASS Huffman table sanity\n%!"
 ;;
 
@@ -320,10 +344,10 @@ let test_encode_decode_indexed () =
   let enc = Hpack.create () in
   let dec = Hpack.create () in
   (* :method POST is in static table at index 3 *)
-  let headers = [(":method", "POST")] in
+  let headers = [ ":method", "POST" ] in
   let block = Hpack.encode enc headers in
   let decoded = Hpack.decode dec block in
-  assert (decoded = [(":method", "POST")]);
+  assert (decoded = [ ":method", "POST" ]);
   Printf.printf "PASS encode/decode indexed header\n%!"
 ;;
 
@@ -331,41 +355,44 @@ let test_encode_decode_literal_indexed_name () =
   let enc = Hpack.create () in
   let dec = Hpack.create () in
   (* :authority has static index, but value is literal *)
-  let headers = [(":authority", "localhost:8080")] in
+  let headers = [ ":authority", "localhost:8080" ] in
   let block = Hpack.encode enc headers in
   let decoded = Hpack.decode dec block in
-  assert (decoded = [(":authority", "localhost:8080")]);
+  assert (decoded = [ ":authority", "localhost:8080" ]);
   Printf.printf "PASS encode/decode literal with indexed name\n%!"
 ;;
 
 let test_encode_decode_literal_new_name () =
   let enc = Hpack.create () in
   let dec = Hpack.create () in
-  let headers = [("x-custom-header", "custom-value")] in
+  let headers = [ "x-custom-header", "custom-value" ] in
   let block = Hpack.encode enc headers in
   let decoded = Hpack.decode dec block in
-  assert (decoded = [("x-custom-header", "custom-value")]);
+  assert (decoded = [ "x-custom-header", "custom-value" ]);
   Printf.printf "PASS encode/decode literal with new name\n%!"
 ;;
 
 let test_encode_decode_multiple_headers () =
   let enc = Hpack.create () in
   let dec = Hpack.create () in
-  let headers = [
-    (":method", "POST");
-    (":scheme", "http");
-    (":path", "/echo.EchoService/Echo");
-    (":authority", "localhost:50051");
-    ("content-type", "application/grpc");
-    ("te", "trailers");
-  ] in
+  let headers =
+    [ ":method", "POST"
+    ; ":scheme", "http"
+    ; ":path", "/echo.EchoService/Echo"
+    ; ":authority", "localhost:50051"
+    ; "content-type", "application/grpc"
+    ; "te", "trailers"
+    ]
+  in
   let block = Hpack.encode enc headers in
   let decoded = Hpack.decode dec block in
   assert (List.length decoded = List.length headers);
-  List.iter2 (fun (n1, v1) (n2, v2) ->
-    assert (n1 = n2);
-    assert (v1 = v2))
-    headers decoded;
+  List.iter2
+    (fun (n1, v1) (n2, v2) ->
+       assert (n1 = n2);
+       assert (v1 = v2))
+    headers
+    decoded;
   Printf.printf "PASS encode/decode multiple gRPC headers\n%!"
 ;;
 
@@ -373,7 +400,7 @@ let test_encode_decode_dynamic_table_reuse () =
   (* Encode same headers twice -- second time should use indexed *)
   let enc = Hpack.create () in
   let dec = Hpack.create () in
-  let headers = [("x-request-id", "abc123")] in
+  let headers = [ "x-request-id", "abc123" ] in
   let block1 = Hpack.encode enc headers in
   let decoded1 = Hpack.decode dec block1 in
   assert (decoded1 = headers);
@@ -390,21 +417,21 @@ let test_dynamic_table_eviction_during_decode () =
   let enc = Hpack.create ~max_size:80 () in
   let dec = Hpack.create ~max_size:80 () in
   (* Entry 1: 3 + 3 + 32 = 38 bytes *)
-  let h1 = [("aaa", "bbb")] in
+  let h1 = [ "aaa", "bbb" ] in
   let b1 = Hpack.encode enc h1 in
   let d1 = Hpack.decode dec b1 in
   assert (d1 = h1);
   assert (enc.table_len = 1);
   assert (dec.table_len = 1);
   (* Entry 2: 3 + 3 + 32 = 38 bytes -> total would be 76, fits in 80 *)
-  let h2 = [("ccc", "ddd")] in
+  let h2 = [ "ccc", "ddd" ] in
   let b2 = Hpack.encode enc h2 in
   let d2 = Hpack.decode dec b2 in
   assert (d2 = h2);
   assert (enc.table_len = 2);
   assert (dec.table_len = 2);
   (* Entry 3: 3 + 3 + 32 = 38 bytes -> total would be 114 > 80, must evict *)
-  let h3 = [("eee", "fff")] in
+  let h3 = [ "eee", "fff" ] in
   let b3 = Hpack.encode enc h3 in
   let d3 = Hpack.decode dec b3 in
   assert (d3 = h3);
@@ -425,14 +452,16 @@ let test_get_dynamic_entry_bounds () =
   assert (entry.value = "value");
   (* Invalid index: too high *)
   (try
-    let _ = Hpack.get_dynamic_entry ctx 63 in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ = Hpack.get_dynamic_entry ctx 63 in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   (* Invalid index: static range *)
   (try
-    let _ = Hpack.get_dynamic_entry ctx 1 in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ = Hpack.get_dynamic_entry ctx 1 in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   Printf.printf "PASS get_dynamic_entry bounds\n%!"
 ;;
 
@@ -442,19 +471,22 @@ let test_decode_rejects_index_zero () =
   let ctx = Hpack.create () in
   (* Create a buffer with indexed representation, index=0 *)
   let buf = Cstruct.create 1 in
-  Cstruct.set_uint8 buf 0 0x80;  (* 0x80 | 0 = indexed, index 0 *)
+  Cstruct.set_uint8 buf 0 0x80;
+  (* 0x80 | 0 = indexed, index 0 *)
   (try
-    let _ = Hpack.decode ctx buf in
-    assert false
-  with Invalid_argument _ -> ());
+     let _ = Hpack.decode ctx buf in
+     assert false
+   with
+   | Invalid_argument _ -> ());
   Printf.printf "PASS decode rejects index 0\n%!"
 ;;
 
 (* ── gRPC helpers ─────────────────────────────────────────────── *)
 
 let test_grpc_request_headers () =
-  let headers = Hpack.grpc_request_headers
-    ~authority:"localhost:50051" ~path:"/echo/Echo" in
+  let headers =
+    Hpack.grpc_request_headers ~authority:"localhost:50051" ~path:"/echo/Echo"
+  in
   assert (List.length headers = 6);
   assert (List.assoc ":method" headers = "POST");
   assert (List.assoc ":scheme" headers = "http");
@@ -504,13 +536,13 @@ let test_encode_trailers_fast () =
 (* ── remove_last ──────────────────────────────────────────────── *)
 
 let test_remove_last () =
-  let (removed, rest) = Hpack.remove_last [1; 2; 3] in
+  let removed, rest = Hpack.remove_last [ 1; 2; 3 ] in
   assert (removed = Some 3);
-  assert (rest = [1; 2]);
-  let (removed2, rest2) = Hpack.remove_last [42] in
+  assert (rest = [ 1; 2 ]);
+  let removed2, rest2 = Hpack.remove_last [ 42 ] in
   assert (removed2 = Some 42);
   assert (rest2 = []);
-  let (removed3, rest3) = Hpack.remove_last [] in
+  let removed3, rest3 = Hpack.remove_last [] in
   assert (removed3 = None);
   assert (rest3 = []);
   Printf.printf "PASS remove_last\n%!"
@@ -522,19 +554,25 @@ let test_multi_request_scenario () =
   let enc = Hpack.create () in
   let dec = Hpack.create () in
   (* Request 1 *)
-  let req1 = Hpack.grpc_request_headers ~authority:"localhost:50051" ~path:"/svc/Method1" in
+  let req1 =
+    Hpack.grpc_request_headers ~authority:"localhost:50051" ~path:"/svc/Method1"
+  in
   let block1 = Hpack.encode enc req1 in
   let decoded1 = Hpack.decode dec block1 in
   assert (List.length decoded1 = List.length req1);
   (* Request 2 -- similar headers, dynamic table should help *)
-  let req2 = Hpack.grpc_request_headers ~authority:"localhost:50051" ~path:"/svc/Method2" in
+  let req2 =
+    Hpack.grpc_request_headers ~authority:"localhost:50051" ~path:"/svc/Method2"
+  in
   let block2 = Hpack.encode enc req2 in
   let decoded2 = Hpack.decode dec block2 in
   assert (List.length decoded2 = List.length req2);
   assert (List.assoc ":path" decoded2 = "/svc/Method2");
   (* block2 should be same size or smaller due to dynamic table *)
-  Printf.printf "PASS multi-request scenario (block1=%d, block2=%d bytes)\n%!"
-    (Cstruct.length block1) (Cstruct.length block2)
+  Printf.printf
+    "PASS multi-request scenario (block1=%d, block2=%d bytes)\n%!"
+    (Cstruct.length block1)
+    (Cstruct.length block2)
 ;;
 
 (* ── Runner ───────────────────────────────────────────────────── *)

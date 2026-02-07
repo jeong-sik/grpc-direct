@@ -322,8 +322,8 @@ let handle_bidi_streaming
       Body.Reader.close body;
       Grpc_stream.close request_stream;
       (* Close response_stream if available *)
-      (if Eio.Promise.is_resolved response_stream_promise
-       then Grpc_stream.close (Eio.Promise.await response_stream_promise));
+      if Eio.Promise.is_resolved response_stream_promise
+      then Grpc_stream.close (Eio.Promise.await response_stream_promise);
       Eio.Promise.await writer_done_promise;
       if !response_started
       then (
@@ -349,8 +349,8 @@ let handle_bidi_streaming
       match respond_with_streaming_safe ~reqd resp with
       | None ->
         finished := true;
-        (if Eio.Promise.is_resolved response_stream_promise
-         then Grpc_stream.close (Eio.Promise.await response_stream_promise));
+        if Eio.Promise.is_resolved response_stream_promise
+        then Grpc_stream.close (Eio.Promise.await response_stream_promise);
         signal_writer_done ()
       | Some bw -> body_writer := Some bw)
   in
@@ -422,8 +422,7 @@ let handle_bidi_streaming
         | msg ->
           Grpc_stream.add proxy_stream msg;
           copy ()
-        | exception End_of_file ->
-          Grpc_stream.close proxy_stream
+        | exception End_of_file -> Grpc_stream.close proxy_stream
       in
       copy ()));
   let handle_extract_error err =

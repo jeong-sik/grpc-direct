@@ -49,14 +49,16 @@ let test_encode_empty_body () =
 let test_encode_decode_large () =
   let size = 16384 in
   let body = Cstruct.create size in
-  for i = 0 to size - 1 do Cstruct.set_uint8 body i (i land 0xFF) done;
+  for i = 0 to size - 1 do
+    Cstruct.set_uint8 body i (i land 0xFF)
+  done;
   let encoded = Grpc_message.encode body in
   assert (Cstruct.length encoded = 5 + size);
   let decoded, remaining = Grpc_message.decode encoded in
   assert (Cstruct.length remaining = 0);
   assert (Cstruct.length decoded = size);
   for i = 0 to size - 1 do
-    assert (Cstruct.get_uint8 decoded i = (i land 0xFF))
+    assert (Cstruct.get_uint8 decoded i = i land 0xFF)
   done;
   Printf.printf "PASS encode/decode large (%d bytes)\n%!" size
 ;;
@@ -66,9 +68,10 @@ let test_encode_decode_large () =
 let test_decode_incomplete_header () =
   let buf = Cstruct.create 3 in
   (try
-    let _ = Grpc_message.decode buf in
-    assert false
-  with Failure _ -> ());
+     let _ = Grpc_message.decode buf in
+     assert false
+   with
+   | Failure _ -> ());
   Printf.printf "PASS decode rejects incomplete header\n%!"
 ;;
 
@@ -78,9 +81,10 @@ let test_decode_incomplete_body () =
   Cstruct.set_uint8 buf 0 0;
   Cstruct.BE.set_uint32 buf 1 100l;
   (try
-    let _ = Grpc_message.decode buf in
-    assert false
-  with Failure _ -> ());
+     let _ = Grpc_message.decode buf in
+     assert false
+   with
+   | Failure _ -> ());
   Printf.printf "PASS decode rejects incomplete body\n%!"
 ;;
 
@@ -89,7 +93,7 @@ let test_decode_incomplete_body () =
 let test_decode_with_remaining () =
   let msg1 = Grpc_message.encode (Cstruct.of_string "msg1") in
   let msg2 = Grpc_message.encode (Cstruct.of_string "msg2") in
-  let combined = Cstruct.concat [msg1; msg2] in
+  let combined = Cstruct.concat [ msg1; msg2 ] in
   let decoded1, remaining = Grpc_message.decode combined in
   assert (Cstruct.to_string decoded1 = "msg1");
   assert (Cstruct.length remaining = Cstruct.length msg2);
@@ -105,10 +109,10 @@ let test_try_decode_complete () =
   let body = Cstruct.of_string "complete" in
   let encoded = Grpc_message.encode body in
   (match Grpc_message.try_decode encoded with
-  | Some (decoded, remaining) ->
-    assert (Cstruct.to_string decoded = "complete");
-    assert (Cstruct.length remaining = 0)
-  | None -> assert false);
+   | Some (decoded, remaining) ->
+     assert (Cstruct.to_string decoded = "complete");
+     assert (Cstruct.length remaining = 0)
+   | None -> assert false);
   Printf.printf "PASS try_decode complete\n%!"
 ;;
 
@@ -121,7 +125,8 @@ let test_try_decode_incomplete_header () =
 let test_try_decode_incomplete_body () =
   let buf = Cstruct.create (5 + 10) in
   Cstruct.set_uint8 buf 0 0;
-  Cstruct.BE.set_uint32 buf 1 100l;  (* Says 100 bytes, but only 10 available *)
+  Cstruct.BE.set_uint32 buf 1 100l;
+  (* Says 100 bytes, but only 10 available *)
   assert (Grpc_message.try_decode buf = None);
   Printf.printf "PASS try_decode returns None for incomplete body\n%!"
 ;;
@@ -129,12 +134,12 @@ let test_try_decode_incomplete_body () =
 let test_try_decode_with_remaining () =
   let msg = Grpc_message.encode (Cstruct.of_string "data") in
   let extra = Cstruct.of_string "extra" in
-  let combined = Cstruct.concat [msg; extra] in
+  let combined = Cstruct.concat [ msg; extra ] in
   (match Grpc_message.try_decode combined with
-  | Some (decoded, remaining) ->
-    assert (Cstruct.to_string decoded = "data");
-    assert (Cstruct.to_string remaining = "extra")
-  | None -> assert false);
+   | Some (decoded, remaining) ->
+     assert (Cstruct.to_string decoded = "data");
+     assert (Cstruct.to_string remaining = "extra")
+   | None -> assert false);
   Printf.printf "PASS try_decode with remaining\n%!"
 ;;
 
@@ -168,7 +173,7 @@ let test_is_complete_exact () =
 
 let test_is_complete_with_extra () =
   let msg = Grpc_message.encode (Cstruct.of_string "msg") in
-  let combined = Cstruct.concat [msg; Cstruct.of_string "extra"] in
+  let combined = Cstruct.concat [ msg; Cstruct.of_string "extra" ] in
   assert (Grpc_message.is_complete combined);
   Printf.printf "PASS is_complete with extra data\n%!"
 ;;
@@ -178,8 +183,8 @@ let test_is_complete_with_extra () =
 let test_expected_size () =
   let encoded = Grpc_message.encode (Cstruct.of_string "test") in
   (match Grpc_message.expected_size encoded with
-  | Some sz -> assert (sz = 5 + 4)
-  | None -> assert false);
+   | Some sz -> assert (sz = 5 + 4)
+   | None -> assert false);
   Printf.printf "PASS expected_size\n%!"
 ;;
 
@@ -192,8 +197,8 @@ let test_expected_size_incomplete () =
 let test_expected_size_empty_body () =
   let encoded = Grpc_message.encode (Cstruct.create 0) in
   (match Grpc_message.expected_size encoded with
-  | Some sz -> assert (sz = 5)
-  | None -> assert false);
+   | Some sz -> assert (sz = 5)
+   | None -> assert false);
   Printf.printf "PASS expected_size empty body\n%!"
 ;;
 
@@ -227,7 +232,8 @@ let test_status_of_int () =
   done;
   (* Unknown code maps to Unknown *)
   let s = Grpc_message.Status.of_int 99 in
-  assert (Grpc_message.Status.to_int s = 2);  (* Unknown = 2 *)
+  assert (Grpc_message.Status.to_int s = 2);
+  (* Unknown = 2 *)
   Printf.printf "PASS Status.of_int roundtrip\n%!"
 ;;
 
@@ -241,18 +247,33 @@ let test_status_to_string () =
 ;;
 
 let test_status_roundtrip_all () =
-  let all_statuses = [
-    Grpc_message.Status.Ok; Cancelled; Unknown; InvalidArgument;
-    DeadlineExceeded; NotFound; AlreadyExists; PermissionDenied;
-    ResourceExhausted; FailedPrecondition; Aborted; OutOfRange;
-    Unimplemented; Internal; Unavailable; DataLoss; Unauthenticated
-  ] in
-  List.iter (fun s ->
-    let i = Grpc_message.Status.to_int s in
-    let s' = Grpc_message.Status.of_int i in
-    assert (Grpc_message.Status.to_int s' = i);
-    let str = Grpc_message.Status.to_string s in
-    assert (String.length str > 0))
+  let all_statuses =
+    [ Grpc_message.Status.Ok
+    ; Cancelled
+    ; Unknown
+    ; InvalidArgument
+    ; DeadlineExceeded
+    ; NotFound
+    ; AlreadyExists
+    ; PermissionDenied
+    ; ResourceExhausted
+    ; FailedPrecondition
+    ; Aborted
+    ; OutOfRange
+    ; Unimplemented
+    ; Internal
+    ; Unavailable
+    ; DataLoss
+    ; Unauthenticated
+    ]
+  in
+  List.iter
+    (fun s ->
+       let i = Grpc_message.Status.to_int s in
+       let s' = Grpc_message.Status.of_int i in
+       assert (Grpc_message.Status.to_int s' = i);
+       let str = Grpc_message.Status.to_string s in
+       assert (String.length str > 0))
     all_statuses;
   Printf.printf "PASS Status roundtrip all codes\n%!"
 ;;
@@ -260,9 +281,8 @@ let test_status_roundtrip_all () =
 (* ── Multiple message framing ─────────────────────────────────── *)
 
 let test_multiple_message_framing () =
-  let messages = ["first"; "second"; "third"; ""] in
-  let encoded = List.map (fun s ->
-    Grpc_message.encode (Cstruct.of_string s)) messages in
+  let messages = [ "first"; "second"; "third"; "" ] in
+  let encoded = List.map (fun s -> Grpc_message.encode (Cstruct.of_string s)) messages in
   let combined = Cstruct.concat encoded in
   (* Decode all messages in sequence *)
   let decoded = ref [] in

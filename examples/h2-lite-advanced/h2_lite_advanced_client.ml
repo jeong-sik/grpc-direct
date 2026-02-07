@@ -13,7 +13,10 @@ let () =
     usage;
   let on_push (push : H2_lite.push_response) =
     let body, _ = Grpc_message.decode push.response_body in
-    Printf.printf "+PUSH stream=%ld body=%s\n%!" push.promised_stream_id (Cstruct.to_string body)
+    Printf.printf
+      "+PUSH stream=%ld body=%s\n%!"
+      push.promised_stream_id
+      (Cstruct.to_string body)
   in
   Printf.printf "[DEBUG] Starting client...\n%!";
   Eio_main.run
@@ -32,7 +35,9 @@ let () =
       ~port:!port
       ()
   in
-  Printf.printf "[DEBUG] Connected! peer_settings.enable_push=%b\n%!" client.conn.H2_lite.Connection.peer_settings.enable_push;
+  Printf.printf
+    "[DEBUG] Connected! peer_settings.enable_push=%b\n%!"
+    client.conn.H2_lite.Connection.peer_settings.enable_push;
   let stream =
     H2_lite.open_stream
       ~is_client:true
@@ -75,7 +80,8 @@ let () =
   let rec read_response () =
     Printf.printf "[DEBUG] Calling recv_frame...\n%!";
     let frame = H2_lite.recv_frame ?on_push:client.on_push stream in
-    Printf.printf "[DEBUG] Got frame type=%d stream=%ld end_stream=%b\n%!"
+    Printf.printf
+      "[DEBUG] Got frame type=%d stream=%ld end_stream=%b\n%!"
       (Frame.int_of_frame_type frame.Frame.header.frame_type)
       frame.Frame.header.stream_id
       (Frame.Flags.is_set frame.Frame.header.flags Frame.Flags.end_stream);
@@ -86,10 +92,15 @@ let () =
        let headers = decode_headers stream frame in
        record_status headers
      | Frame.Data ->
-       Printf.printf "[DEBUG] Processing DATA frame (%d bytes)\n%!" (Cstruct.length frame.payload);
+       Printf.printf
+         "[DEBUG] Processing DATA frame (%d bytes)\n%!"
+         (Cstruct.length frame.payload);
        Buffer.add_string response_buffer (Cstruct.to_string frame.payload)
      | Frame.RstStream -> failwith "Received RST_STREAM from server"
-     | _ -> Printf.printf "[DEBUG] Skipping frame type %d\n%!" (Frame.int_of_frame_type frame.Frame.header.frame_type));
+     | _ ->
+       Printf.printf
+         "[DEBUG] Skipping frame type %d\n%!"
+         (Frame.int_of_frame_type frame.Frame.header.frame_type));
     if not end_stream then read_response ()
   in
   Printf.printf "[DEBUG] Starting read_response loop...\n%!";

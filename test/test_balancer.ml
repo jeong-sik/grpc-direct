@@ -3,17 +3,18 @@
 open Grpc_eio
 
 let test_create_empty_targets () =
-  (try
-     ignore (Balancer.create ~targets:[] ());
-     failwith "Expected failure for empty targets"
-   with
-   | Failure msg ->
-     assert (String.length msg > 0);
-     Printf.printf "  OK create with empty targets raises: %s\n%!" msg)
+  try
+    ignore (Balancer.create ~targets:[] ());
+    failwith "Expected failure for empty targets"
+  with
+  | Failure msg ->
+    assert (String.length msg > 0);
+    Printf.printf "  OK create with empty targets raises: %s\n%!" msg
 ;;
 
 let test_create_roundrobin () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "s1"; "s2"; "s3" ] () in
   assert (Balancer.total_count b = 3);
   (* Unknown state is considered available *)
@@ -22,17 +23,17 @@ let test_create_roundrobin () =
 ;;
 
 let test_create_pick_first () =
-  Eio_main.run @@ fun _env ->
-  let b =
-    Balancer.create ~strategy:Balancer.PickFirst ~targets:[ "x"; "y" ] ()
-  in
+  Eio_main.run
+  @@ fun _env ->
+  let b = Balancer.create ~strategy:Balancer.PickFirst ~targets:[ "x"; "y" ] () in
   assert (Balancer.total_count b = 2);
   assert (Balancer.healthy_count b = 2);
   Printf.printf "  OK create PickFirst\n%!"
 ;;
 
 let test_create_weighted () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b =
     Balancer.create
       ~strategy:(Balancer.WeightedRoundRobin [ 3; 1 ])
@@ -44,16 +45,16 @@ let test_create_weighted () =
 ;;
 
 let test_create_random () =
-  Eio_main.run @@ fun _env ->
-  let b =
-    Balancer.create ~strategy:Balancer.Random ~targets:[ "a"; "b" ] ()
-  in
+  Eio_main.run
+  @@ fun _env ->
+  let b = Balancer.create ~strategy:Balancer.Random ~targets:[ "a"; "b" ] () in
   assert (Balancer.total_count b = 2);
   Printf.printf "  OK create Random\n%!"
 ;;
 
 let test_create_single_target () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "only-one" ] () in
   assert (Balancer.total_count b = 1);
   assert (Balancer.healthy_count b = 1);
@@ -61,7 +62,8 @@ let test_create_single_target () =
 ;;
 
 let test_create_custom_thresholds () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b =
     Balancer.create
       ~health_check_interval:30.0
@@ -75,7 +77,8 @@ let test_create_custom_thresholds () =
 ;;
 
 let test_backends_initial_state () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "s1"; "s2" ] () in
   let bs = Balancer.backends b in
   assert (List.length bs = 2);
@@ -86,7 +89,8 @@ let test_backends_initial_state () =
 ;;
 
 let test_mark_unhealthy () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "a"; "b"; "c" ] () in
   assert (Balancer.healthy_count b = 3);
   Balancer.mark_unhealthy b "b";
@@ -100,7 +104,8 @@ let test_mark_unhealthy () =
 ;;
 
 let test_mark_healthy () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "a"; "b" ] () in
   Balancer.mark_unhealthy b "a";
   assert (Balancer.healthy_count b = 1);
@@ -112,7 +117,8 @@ let test_mark_healthy () =
 ;;
 
 let test_mark_nonexistent_target () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "a" ] () in
   (* Marking nonexistent target should be a no-op *)
   Balancer.mark_unhealthy b "nonexistent";
@@ -123,7 +129,8 @@ let test_mark_nonexistent_target () =
 ;;
 
 let test_mark_all_unhealthy () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "a"; "b"; "c" ] () in
   Balancer.mark_unhealthy b "a";
   Balancer.mark_unhealthy b "b";
@@ -134,7 +141,8 @@ let test_mark_all_unhealthy () =
 ;;
 
 let test_to_string_roundrobin () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "host1"; "host2" ] () in
   let s = Balancer.to_string b in
   assert (String.length s > 0);
@@ -142,17 +150,17 @@ let test_to_string_roundrobin () =
 ;;
 
 let test_to_string_pick_first () =
-  Eio_main.run @@ fun _env ->
-  let b =
-    Balancer.create ~strategy:Balancer.PickFirst ~targets:[ "h1" ] ()
-  in
+  Eio_main.run
+  @@ fun _env ->
+  let b = Balancer.create ~strategy:Balancer.PickFirst ~targets:[ "h1" ] () in
   let s = Balancer.to_string b in
   assert (String.length s > 0);
   Printf.printf "  OK to_string PickFirst: %s\n%!" s
 ;;
 
 let test_to_string_with_unhealthy () =
-  Eio_main.run @@ fun _env ->
+  Eio_main.run
+  @@ fun _env ->
   let b = Balancer.create ~targets:[ "a"; "b" ] () in
   Balancer.mark_unhealthy b "b";
   let s = Balancer.to_string b in
