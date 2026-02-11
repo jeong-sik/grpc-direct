@@ -1,6 +1,8 @@
 ; Suppress warning 69 (unused-field) project-wide.
 ; Many record fields are reserved for future use (pool, balancer, server_lite).
 ; TODO: Fix individually and remove this suppression.
+
 (env
  (_
-  (flags (:standard -w -69))))
+  (flags
+   (:standard -w -69))))
