@@ -1,5 +1,6 @@
 (executable
  (name chat_server)
+ (modules chat_server time_compat)
  (package grpc-direct)
  (public_name ai-chat-server)
  (libraries grpc-direct eio eio_main unix))

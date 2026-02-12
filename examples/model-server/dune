@@ -1,11 +1,13 @@
 (executable
  (name inference_server)
+ (modules inference_server time_compat)
  (package grpc-direct)
  (public_name model-inference-server)
  (libraries grpc-direct eio eio_main unix))
 
 (executable
  (name inference_client)
+ (modules inference_client time_compat)
  (package grpc-direct)
  (public_name model-inference-client)
  (libraries grpc-direct grpc-direct-core eio eio_main unix))

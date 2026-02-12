@@ -118,7 +118,7 @@ let chat_completion (request_bytes : string) : string Grpc_eio.Stream.t =
   List.iteri
     (fun i token ->
        (* Simulate token generation delay *)
-       Unix.sleepf (AIModel.token_delay ());
+       Time_compat.sleep (AIModel.token_delay ());
        let is_last = i = List.length tokens - 1 in
        let response =
          ChatResponse.{ token; finish_reason = (if is_last then Some "stop" else None) }
@@ -145,6 +145,7 @@ let () =
   Random.self_init ();
   Eio_main.run
   @@ fun env ->
+  Time_compat.set_clock (Eio.Stdenv.clock env);
   Eio.Switch.run
   @@ fun sw ->
   (* Create AI chat service *)

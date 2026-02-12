@@ -115,7 +115,7 @@ let infer_with_retry client ~sw ~env ~max_retries input =
       then (
         let delay = Float.pow 2.0 (float_of_int (n - 1)) *. 0.1 in
         Printf.printf "   ⏳ Retry %d/%d (waiting %.1fs)...\n%!" n max_retries delay;
-        Unix.sleepf delay);
+        Time_compat.sleep delay);
       let request =
         InferRequest.create ~params:[ "temperature", "0.7"; "max_tokens", "100" ] input
       in
@@ -140,6 +140,7 @@ let infer_with_retry client ~sw ~env ~max_retries input =
 let () =
   Eio_main.run
   @@ fun env ->
+  Time_compat.set_clock (Eio.Stdenv.clock env);
   Eio.Switch.run
   @@ fun sw ->
   Printf.printf "🔮 Model Inference Client\n%!";

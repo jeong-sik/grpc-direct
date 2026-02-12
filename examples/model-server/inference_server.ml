@@ -57,7 +57,7 @@ module ServerState = struct
     start_time := Unix.gettimeofday ();
     (* Simulate model loading *)
     Printf.printf "📦 Loading model...";
-    Unix.sleepf 0.5;
+    Time_compat.sleep 0.5;
     (* Simulate load time *)
     model_loaded := true;
     Printf.printf "✅ Model loaded"
@@ -85,7 +85,7 @@ let infer (request_bytes : string) : string =
   let input_preview = String.sub request.input 0 (min 30 (String.length request.input)) in
   Printf.printf "🔮 [Infer] Processing: %s..." input_preview;
   (* Simulate model inference *)
-  Unix.sleepf (0.01 +. Random.float 0.02);
+  Time_compat.sleep (0.01 +. Random.float 0.02);
   let output =
     Printf.sprintf
       "Processed: %s (params: %d)"
@@ -105,6 +105,7 @@ let () =
   Random.self_init ();
   Eio_main.run
   @@ fun env ->
+  Time_compat.set_clock (Eio.Stdenv.clock env);
   Eio.Switch.run
   @@ fun sw ->
   (* Initialize server state *)
