@@ -22,12 +22,22 @@ module ChatRequest = struct
     (* Simple JSON-like parsing - production would use protobuf *)
     let parts = String.split_on_char '|' bytes in
     match parts with
-    | [ model; prompt; max_tokens; temperature ] ->
-      { model
-      ; prompt
-      ; max_tokens = int_of_string max_tokens
-      ; temperature = float_of_string temperature
-      }
+    | [ model; prompt; max_tokens_s; temperature_s ] ->
+      let max_tokens =
+        match int_of_string_opt max_tokens_s with
+        | Some n -> n
+        | None ->
+          Printf.eprintf "WARNING: invalid max_tokens %S, using default 100\n%!" max_tokens_s;
+          100
+      in
+      let temperature =
+        match float_of_string_opt temperature_s with
+        | Some f -> f
+        | None ->
+          Printf.eprintf "WARNING: invalid temperature %S, using default 0.7\n%!" temperature_s;
+          0.7
+      in
+      { model; prompt; max_tokens; temperature }
     | _ -> { model = "default"; prompt = bytes; max_tokens = 100; temperature = 0.7 }
   ;;
 end
@@ -131,13 +141,13 @@ let chat_completion (request_bytes : string) : string Grpc_eio.Stream.t =
 
 (** Metrics interceptor - tracks request count and latency *)
 let metrics_interceptor () : string Grpc_eio.Interceptor.t =
-  let request_count = ref 0 in
+  let request_count = Atomic.make 0 in
   Grpc_eio.Interceptor.make ~name:"metrics" (fun ctx next ->
-    incr request_count;
+    Atomic.incr request_count;
     let start = Unix.gettimeofday () in
     let result = next ctx in
     let elapsed = Unix.gettimeofday () -. start in
-    Printf.printf "📊 [Metrics] Request #%d completed in %.3fs" !request_count elapsed;
+    Printf.printf "📊 [Metrics] Request #%d completed in %.3fs" (Atomic.get request_count) elapsed;
     result)
 ;;
 
