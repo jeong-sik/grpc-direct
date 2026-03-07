@@ -25,14 +25,20 @@ module ChatRequest = struct
     | [ model; prompt; max_tokens_s; temperature_s ] ->
       let max_tokens =
         match int_of_string_opt max_tokens_s with
-        | Some n -> n
+        | Some n when n > 0 && n <= 8192 -> n
+        | Some _ ->
+          Printf.eprintf "Warning: max_tokens out of bounds (1..8192), using default %d\n%!" 100;
+          100
         | None ->
           Printf.eprintf "WARNING: invalid max_tokens %S, using default 100\n%!" max_tokens_s;
           100
       in
       let temperature =
         match float_of_string_opt temperature_s with
-        | Some f -> f
+        | Some f when f >= 0.0 && f <= 2.0 && Float.is_finite f -> f
+        | Some _ ->
+          Printf.eprintf "Warning: temperature out of bounds (0.0..2.0), using default %.1f\n%!" 0.7;
+          0.7
         | None ->
           Printf.eprintf "WARNING: invalid temperature %S, using default 0.7\n%!" temperature_s;
           0.7
