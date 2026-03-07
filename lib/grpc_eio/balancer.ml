@@ -260,7 +260,10 @@ let call ~sw ~env (balancer : t) (f : Client.t -> 'a) : 'a =
   | Some backend ->
     let run_with_client () =
       match get_pool balancer backend.target with
-      | Some pool -> Pool.with_connection ~sw ~env pool f
+      | Some pool ->
+        (match Pool.with_connection ~sw ~env pool f with
+         | Ok v -> v
+         | Error msg -> failwith msg)
       | None ->
         let client = Client.connect ~sw ~env backend.target in
         f client
@@ -283,7 +286,10 @@ let call_with_retry ~sw ~env ?(max_retries = 2) (balancer : t) (f : Client.t -> 
     | Some backend ->
       let run_with_client () =
         match get_pool balancer backend.target with
-        | Some pool -> Pool.with_connection ~sw ~env pool f
+        | Some pool ->
+          (match Pool.with_connection ~sw ~env pool f with
+           | Ok v -> v
+           | Error msg -> failwith msg)
         | None ->
           let client = Client.connect ~sw ~env backend.target in
           f client

@@ -109,7 +109,8 @@ let () =
         ~request:(EmbedRequest.to_bytes request))
   in
   (match result with
-   | Ok response_bytes ->
+   | Error pool_err -> Printf.printf "❌ Pool error: %s\n%!" pool_err
+   | Ok (Ok response_bytes) ->
      let response = EmbedResponse.of_bytes response_bytes in
      Printf.printf "\n✅ Received %d embeddings\n" (List.length response.embeddings);
      Printf.printf "   Model: %s\n" response.model;
@@ -133,7 +134,7 @@ let () =
        Printf.printf
          "   'OCaml functional' vs 'gRPC microservices': %.4f\n"
          (cosine_similarity emb1 emb2))
-   | Error status -> Printf.printf "❌ Error: %s\n%!" status.Grpc_core.Status.message);
+   | Ok (Error status) -> Printf.printf "❌ Error: %s\n%!" status.Grpc_core.Status.message);
   (* Show pool statistics *)
   let stats = Grpc_eio.Pool.stats pool in
   Printf.printf

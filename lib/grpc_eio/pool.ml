@@ -25,10 +25,12 @@
       )
 
       (* Or manual acquire/release *)
-      let client = Pool.acquire pool in
-      let result = Client.call_unary client ... in
-      Pool.release pool client;
-      result
+      match Pool.acquire pool with
+      | Ok client ->
+        let result = Client.call_unary client ... in
+        Pool.release pool client;
+        result
+      | Error msg -> failwith msg
     ]} *)
 
 (** Pool configuration *)
@@ -156,45 +158,47 @@ let is_healthy (conn : pooled_conn) ~idle_timeout : bool =
     Blocks if no connections are available and max is reached.
     Creates a new connection if below max and none available.
 
-    @raise Failure if pool is closed or timeout exceeded *)
-let acquire ~sw ~env (pool : t) : Client.t =
+    Returns [Error] if pool is closed or exhausted. *)
+let acquire ~sw ~env (pool : t) : (Client.t, string) result =
   Eio.Mutex.use_rw ~protect:true pool.mutex (fun () ->
-    if pool.closed then failwith "Connection pool is closed";
-    (* Try to find an idle connection *)
-    let rec find_idle () =
-      if Queue.is_empty pool.connections
-      then None
-      else (
-        let conn = Queue.pop pool.connections in
-        if is_healthy conn ~idle_timeout:pool.config.idle_timeout
-        then (
-          conn.state <- InUse;
-          conn.last_used <- Time_compat.now ();
-          Some conn)
+    if pool.closed
+    then Error "Connection pool is closed"
+    else (
+      (* Try to find an idle connection *)
+      let rec find_idle () =
+        if Queue.is_empty pool.connections
+        then None
         else (
-          (* Evict unhealthy connection *)
-          pool.total_count <- pool.total_count - 1;
-          pool.stats_evicted <- pool.stats_evicted + 1;
-          find_idle ()))
-    in
-    match find_idle () with
-    | Some conn ->
-      pool.in_use_count <- pool.in_use_count + 1;
-      pool.stats_acquired <- pool.stats_acquired + 1;
-      conn.client
-    | None when pool.total_count < pool.config.max_connections ->
-      (* Create new connection *)
-      let conn = create_connection ~sw ~env pool in
-      conn.state <- InUse;
-      pool.total_count <- pool.total_count + 1;
-      pool.in_use_count <- pool.in_use_count + 1;
-      pool.stats_acquired <- pool.stats_acquired + 1;
-      conn.client
-    | None ->
-      (* Wait for available connection *)
-      Eio.Condition.await pool.condition pool.mutex;
-      (* Retry after wait - simplified, in production would loop *)
-      failwith "Connection pool exhausted")
+          let conn = Queue.pop pool.connections in
+          if is_healthy conn ~idle_timeout:pool.config.idle_timeout
+          then (
+            conn.state <- InUse;
+            conn.last_used <- Time_compat.now ();
+            Some conn)
+          else (
+            (* Evict unhealthy connection *)
+            pool.total_count <- pool.total_count - 1;
+            pool.stats_evicted <- pool.stats_evicted + 1;
+            find_idle ()))
+      in
+      match find_idle () with
+      | Some conn ->
+        pool.in_use_count <- pool.in_use_count + 1;
+        pool.stats_acquired <- pool.stats_acquired + 1;
+        Ok conn.client
+      | None when pool.total_count < pool.config.max_connections ->
+        (* Create new connection *)
+        let conn = create_connection ~sw ~env pool in
+        conn.state <- InUse;
+        pool.total_count <- pool.total_count + 1;
+        pool.in_use_count <- pool.in_use_count + 1;
+        pool.stats_acquired <- pool.stats_acquired + 1;
+        Ok conn.client
+      | None ->
+        (* Wait for available connection *)
+        Eio.Condition.await pool.condition pool.mutex;
+        (* Retry after wait - simplified, in production would loop *)
+        Error "Connection pool exhausted"))
 ;;
 
 (** Release a connection back to the pool *)
@@ -210,15 +214,17 @@ let release (pool : t) (_client : Client.t) : unit =
 
     @param pool Connection pool
     @param f Function to execute with the client *)
-let with_connection ~sw ~env (pool : t) (f : Client.t -> 'a) : 'a =
-  let client = acquire ~sw ~env pool in
-  match f client with
-  | result ->
-    release pool client;
-    result
-  | exception exn ->
-    release pool client;
-    raise exn
+let with_connection ~sw ~env (pool : t) (f : Client.t -> 'a) : ('a, string) result =
+  match acquire ~sw ~env pool with
+  | Error _ as e -> e
+  | Ok client ->
+    (match f client with
+     | result ->
+       release pool client;
+       Ok result
+     | exception exn ->
+       release pool client;
+       raise exn)
 ;;
 
 (** Close the pool and all connections *)
