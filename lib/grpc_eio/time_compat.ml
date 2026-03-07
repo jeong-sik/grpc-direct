@@ -15,7 +15,9 @@
 
 (** Global clock reference - set at Eio_main.run startup.
     Uses Atomic for domain-safety in OCaml 5.x multicore. *)
-let global_clock : float Eio.Time.clock_ty Eio.Resource.t option Atomic.t = Atomic.make None
+let global_clock : float Eio.Time.clock_ty Eio.Resource.t option Atomic.t =
+  Atomic.make None
+;;
 
 (** Set the global Eio clock. Call once at server startup.
     @param clock The Eio clock from [Eio.Stdenv.clock env] *)
