@@ -33,11 +33,11 @@ let test_tls_config_invalid_paths () =
       ~key_file:"/nonexistent/key.pem"
   in
   try
-    let _ = Grpc_eio.Tls_config.validate config in
-    failwith "Should have raised exception for invalid paths"
+    match Grpc_eio.Tls_config.validate config with
+    | Ok _ -> failwith "Should have returned Error for invalid paths"
+    | Error msg -> Printf.printf "  ✓ Invalid paths rejected: %s\n%!" msg
   with
-  | Sys_error _ -> Printf.printf "  ✓ Invalid paths rejected (Sys_error)\n%!"
-  | Failure msg -> Printf.printf "  ✓ Invalid paths rejected: %s\n%!" msg
+  | Sys_error msg -> Printf.printf "  ✓ Invalid paths rejected (Sys_error): %s\n%!" msg
 ;;
 
 let test_tls_alpn_configuration () =
@@ -107,13 +107,12 @@ let test_tls_config_with_real_certs () =
   | None -> Printf.printf "  ⚠ Skipped (openssl not available)\n%!"
   | Some (cert_file, key_file) ->
     let config = Grpc_eio.Tls_config.create ~cert_file ~key_file in
-    (try
-       let valid = Grpc_eio.Tls_config.validate config in
+    (match Grpc_eio.Tls_config.validate config with
+     | Ok valid ->
        assert valid;
        Printf.printf "  ✓ Valid certs accepted\n%!"
-     with
-     | exn ->
-       Printf.printf "  ✗ Unexpected error: %s\n%!" (Printexc.to_string exn);
+     | Error msg ->
+       Printf.printf "  ✗ Unexpected error: %s\n%!" msg;
        failwith "TLS validation failed with valid certs");
     cleanup_test_certs cert_file key_file
 ;;
@@ -123,12 +122,10 @@ let test_tls_load_with_real_certs () =
   | None -> Printf.printf "  ⚠ Skipped (openssl not available)\n%!"
   | Some (cert_file, key_file) ->
     let config = Grpc_eio.Tls_config.create ~cert_file ~key_file in
-    (try
-       let _tls_config = Grpc_eio.Tls_config.load config in
-       Printf.printf "  ✓ TLS config loaded successfully\n%!"
-     with
-     | exn ->
-       Printf.printf "  ✗ Load failed: %s\n%!" (Printexc.to_string exn);
+    (match Grpc_eio.Tls_config.load config with
+     | Ok _tls_config -> Printf.printf "  ✓ TLS config loaded successfully\n%!"
+     | Error msg ->
+       Printf.printf "  ✗ Load failed: %s\n%!" msg;
        failwith "TLS load failed with valid certs");
     cleanup_test_certs cert_file key_file
 ;;

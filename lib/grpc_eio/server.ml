@@ -489,9 +489,11 @@ let serve ~sw ~env (server : t) : unit =
     match server.config.tls with
     | Some tls ->
       (* RNG initialization should be done at app level with Mirage_crypto_rng_eio.run *)
-      let config = Tls_config.load tls in
-      Log.info "🔒 TLS enabled (ALPN: h2)";
-      Some config
+      (match Tls_config.load tls with
+       | Ok config ->
+         Log.info "🔒 TLS enabled (ALPN: h2)";
+         Some config
+       | Error msg -> failwith ("TLS configuration error: " ^ msg))
     | None ->
       Log.warn "ℹ️  Running without TLS (plaintext h2c)";
       None

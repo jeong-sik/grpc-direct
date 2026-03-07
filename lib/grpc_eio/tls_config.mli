@@ -54,18 +54,18 @@ val create_mtls : cert_file:string -> key_file:string -> ca_file:string -> t
 (** {1 Loading} *)
 
 (** Load TLS server configuration from files.
-    Returns Tls.Config.server with ALPN set to "h2".
-    @raise Failure if cert/key files are invalid *)
-val load : t -> Tls.Config.server
+    Returns [Ok Tls.Config.server] with ALPN set to "h2",
+    or [Error msg] if cert/key files are invalid. *)
+val load : t -> (Tls.Config.server, string) result
 
 (** Load TLS server configuration for HTTP/1.1 (gRPC-Web).
-    Returns Tls.Config.server with ALPN set to "http/1.1". *)
-val load_http1 : t -> Tls.Config.server
+    Returns [Ok Tls.Config.server] with ALPN set to "http/1.1",
+    or [Error msg] if cert/key files are invalid. *)
+val load_http1 : t -> (Tls.Config.server, string) result
 
 (** Validate TLS files can be loaded.
-    @return true if valid
-    @raise Failure if invalid *)
-val validate : t -> bool
+    Returns [Ok true] if valid, [Error msg] if invalid. *)
+val validate : t -> (bool, string) result
 
 (** {1 Query} *)
 

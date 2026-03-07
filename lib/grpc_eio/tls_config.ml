@@ -51,18 +51,20 @@ let read_file path =
 ;;
 
 (** Load CA certificates for client verification *)
-let load_ca_store (ca_file : string) : X509.Authenticator.t =
+let load_ca_store (ca_file : string) : (X509.Authenticator.t, string) result =
   let ca_pem = read_file ca_file in
   match X509.Certificate.decode_pem_multiple ca_pem with
-  | Error (`Msg msg) -> failwith ("CA certificate error: " ^ msg)
+  | Error (`Msg msg) -> Error ("CA certificate error: " ^ msg)
   | Ok ca_certs ->
     (* Create authenticator that validates against these CAs *)
     let time () = Some (Ptime_clock.now ()) in
-    X509.Authenticator.chain_of_trust ~time ca_certs
+    Ok (X509.Authenticator.chain_of_trust ~time ca_certs)
 ;;
 
 (** Load TLS server configuration from files with custom ALPN. *)
-let load_with_alpn ~(alpn_protocols : string list) (tls : t) : Tls.Config.server =
+let load_with_alpn ~(alpn_protocols : string list) (tls : t)
+  : (Tls.Config.server, string) result
+  =
   let cert_pem = read_file tls.cert_file in
   let key_pem = read_file tls.key_file in
   let cert = X509.Certificate.decode_pem_multiple cert_pem in
@@ -70,40 +72,46 @@ let load_with_alpn ~(alpn_protocols : string list) (tls : t) : Tls.Config.server
   match cert, key with
   | Ok certs, Ok key ->
     (* Build authenticator for mTLS if CA provided *)
-    let authenticator =
+    let authenticator_result =
       match tls.ca_file, tls.client_auth with
-      | Some ca_file, RequireAndVerify -> Some (load_ca_store ca_file)
-      | Some ca_file, RequestClientCert -> Some (load_ca_store ca_file)
-      | _ -> None
+      | Some ca_file, RequireAndVerify -> Result.map Option.some (load_ca_store ca_file)
+      | Some ca_file, RequestClientCert -> Result.map Option.some (load_ca_store ca_file)
+      | _ -> Ok None
     in
-    (match
-       Tls.Config.server
-         ~certificates:(`Single (certs, key))
-         ~alpn_protocols
-         ?authenticator
-         ()
-     with
-     | Ok config -> config
-     | Error (`Msg msg) -> failwith ("TLS config error: " ^ msg))
-  | Error (`Msg msg), _ -> failwith ("Certificate error: " ^ msg)
-  | _, Error (`Msg msg) -> failwith ("Private key error: " ^ msg)
+    (match authenticator_result with
+     | Error msg -> Error msg
+     | Ok authenticator ->
+       (match
+          Tls.Config.server
+            ~certificates:(`Single (certs, key))
+            ~alpn_protocols
+            ?authenticator
+            ()
+        with
+        | Ok config -> Ok config
+        | Error (`Msg msg) -> Error ("TLS config error: " ^ msg)))
+  | Error (`Msg msg), _ -> Error ("Certificate error: " ^ msg)
+  | _, Error (`Msg msg) -> Error ("Private key error: " ^ msg)
 ;;
 
 (** Load TLS server configuration from files.
     Returns Tls.Config.server with ALPN set to "h2".
 
     For mTLS, set [ca_file] and [client_auth = RequireAndVerify]. *)
-let load (tls : t) : Tls.Config.server = load_with_alpn ~alpn_protocols:[ "h2" ] tls
+let load (tls : t) : (Tls.Config.server, string) result =
+  load_with_alpn ~alpn_protocols:[ "h2" ] tls
+;;
 
 (** Load TLS server configuration for HTTP/1.1 (gRPC-Web). *)
-let load_http1 (tls : t) : Tls.Config.server =
+let load_http1 (tls : t) : (Tls.Config.server, string) result =
   load_with_alpn ~alpn_protocols:[ "http/1.1" ] tls
 ;;
 
 (** Validate TLS files can be loaded *)
-let validate (tls : t) : bool =
-  let _ = load tls in
-  true
+let validate (tls : t) : (bool, string) result =
+  match load tls with
+  | Ok _ -> Ok true
+  | Error msg -> Error msg
 ;;
 
 (** Check if mTLS is enabled *)
