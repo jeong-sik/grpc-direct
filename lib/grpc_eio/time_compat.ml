@@ -13,18 +13,19 @@
     @since 2026-02 - Async blocking pattern fixes
 *)
 
-(** Global clock reference - set at Eio_main.run startup *)
-let global_clock : float Eio.Time.clock_ty Eio.Resource.t option ref = ref None
+(** Global clock reference - set at Eio_main.run startup.
+    Uses Atomic for domain-safety in OCaml 5.x multicore. *)
+let global_clock : float Eio.Time.clock_ty Eio.Resource.t option Atomic.t = Atomic.make None
 
 (** Set the global Eio clock. Call once at server startup.
     @param clock The Eio clock from [Eio.Stdenv.clock env] *)
-let set_clock clock = global_clock := Some clock
+let set_clock clock = Atomic.set global_clock (Some clock)
 
 (** Clear the global clock (for testing or shutdown) *)
-let clear_clock () = global_clock := None
+let clear_clock () = Atomic.set global_clock None
 
 (** Check if Eio clock is available *)
-let has_clock () = Option.is_some !global_clock
+let has_clock () = Option.is_some (Atomic.get global_clock)
 
 (** Get current timestamp (Eio-native when available, fallback to Unix)
 
@@ -34,7 +35,7 @@ let has_clock () = Option.is_some !global_clock
 
     @return Current Unix timestamp as float (seconds since epoch) *)
 let now () =
-  match !global_clock with
+  match Atomic.get global_clock with
   | Some clock -> Eio.Time.now clock
   | None -> Unix.gettimeofday ()
 ;;
@@ -49,7 +50,7 @@ let now_us () = Int64.of_float (now () *. 1_000_000.0)
 
     @param seconds Duration to sleep *)
 let sleep seconds =
-  match !global_clock with
+  match Atomic.get global_clock with
   | Some clock -> Eio.Time.sleep clock seconds
   | None -> Unix.sleepf seconds
 ;;
