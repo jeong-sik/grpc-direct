@@ -27,7 +27,11 @@ val default_config : target:string -> config
 
 (** Create a client for a gRPC-Web endpoint.
     @param env Eio environment *)
-val connect : ?config:config -> env:Eio_unix.Stdenv.base -> string -> t
+val connect
+  :  ?config:config
+  -> env:Eio_unix.Stdenv.base
+  -> string
+  -> (t, Grpc_core.Status.t) result
 
 (** Unary call *)
 val call_unary

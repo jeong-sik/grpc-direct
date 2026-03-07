@@ -9,7 +9,13 @@ let () =
   @@ fun env ->
   Eio.Switch.run
   @@ fun sw ->
-  let client = Grpc_eio.Grpc_web_client.connect ~env "http://127.0.0.1:8080" in
+  let client =
+    match Grpc_eio.Grpc_web_client.connect ~env "http://127.0.0.1:8080" with
+    | Ok c -> c
+    | Error status ->
+      Printf.eprintf "Connect failed: %s\n%!" (Grpc_core.Status.to_string status);
+      exit 1
+  in
   let make_stream items =
     let stream = Grpc_eio.Stream.create 8 in
     List.iter (fun item -> Grpc_eio.Stream.add stream item) items;

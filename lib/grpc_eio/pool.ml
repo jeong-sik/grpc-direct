@@ -98,8 +98,8 @@ let create_connection ~sw ~env (pool : t) : pooled_conn =
   pool.stats_created <- pool.stats_created + 1;
   { client
   ; state = Idle
-  ; last_used = Unix.gettimeofday ()
-  ; created_at = Unix.gettimeofday ()
+  ; last_used = Time_compat.now ()
+  ; created_at = Time_compat.now ()
   }
 ;;
 
@@ -146,7 +146,7 @@ let create
 
 (** Check if a connection is healthy (not timed out) *)
 let is_healthy (conn : pooled_conn) ~idle_timeout : bool =
-  let now = Unix.gettimeofday () in
+  let now = Time_compat.now () in
   let idle_time = now -. conn.last_used in
   conn.state <> Unhealthy && idle_time < idle_timeout
 ;;
@@ -169,7 +169,7 @@ let acquire ~sw ~env (pool : t) : Client.t =
         if is_healthy conn ~idle_timeout:pool.config.idle_timeout
         then (
           conn.state <- InUse;
-          conn.last_used <- Unix.gettimeofday ();
+          conn.last_used <- Time_compat.now ();
           Some conn)
         else (
           (* Evict unhealthy connection *)

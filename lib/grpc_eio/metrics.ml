@@ -136,7 +136,7 @@ let create () : t =
   { methods = Hashtbl.create 32
   ; total_calls = 0
   ; total_errors = 0
-  ; start_time = Unix.gettimeofday ()
+  ; start_time = Time_compat.now ()
   }
 ;;
 
@@ -189,15 +189,15 @@ let server_interceptor (m : t) : string Interceptor.t =
   Interceptor.make ~name:"metrics" (fun ctx next ->
     let method_ = ctx.Interceptor.method_ in
     record_call_start m ~method_;
-    let start = Unix.gettimeofday () in
+    let start = Time_compat.now () in
     try
       let result = next ctx in
-      let elapsed = Unix.gettimeofday () -. start in
+      let elapsed = Time_compat.now () -. start in
       record_call_end m ~method_ ~latency_sec:elapsed ~success:true ();
       result
     with
     | exn ->
-      let elapsed = Unix.gettimeofday () -. start in
+      let elapsed = Time_compat.now () -. start in
       record_call_end m ~method_ ~latency_sec:elapsed ~success:false ();
       raise exn)
 ;;
@@ -208,7 +208,7 @@ let client_interceptor (m : t) : string Interceptor.t =
 ;;
 
 (** Get uptime in seconds *)
-let uptime (m : t) : float = Unix.gettimeofday () -. m.start_time
+let uptime (m : t) : float = Time_compat.now () -. m.start_time
 
 (** Get total call count *)
 let total_calls (m : t) : int = m.total_calls

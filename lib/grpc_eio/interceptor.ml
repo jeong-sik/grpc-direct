@@ -91,7 +91,7 @@ let get_metadata (ctx : context) (key : string) : string option =
 let is_deadline_exceeded (ctx : context) : bool =
   match ctx.deadline with
   | None -> false
-  | Some deadline -> Unix.gettimeofday () > deadline
+  | Some deadline -> Time_compat.now () > deadline
 ;;
 
 (** Common interceptors *)
@@ -99,10 +99,10 @@ let is_deadline_exceeded (ctx : context) : bool =
 (** Logging interceptor that prints RPC method and timing *)
 let logging ?(log = fun s -> print_endline s) () : _ t =
   make ~name:"logging" (fun ctx next ->
-    let start = Unix.gettimeofday () in
+    let start = Time_compat.now () in
     log (Printf.sprintf "→ %s" ctx.method_);
     let result = next ctx in
-    let elapsed = Unix.gettimeofday () -. start in
+    let elapsed = Time_compat.now () -. start in
     log (Printf.sprintf "← %s (%.3fs)" ctx.method_ elapsed);
     result)
 ;;
@@ -249,7 +249,7 @@ let stream_logging ?(log = fun s -> print_endline s) () : stream_t =
   make_stream
     ~name:"stream_logging"
     ~on_message:(fun ctx msg ->
-      if !count = 0 then start_time := Unix.gettimeofday ();
+      if !count = 0 then start_time := Time_compat.now ();
       incr count;
       log
         (Printf.sprintf
@@ -259,7 +259,7 @@ let stream_logging ?(log = fun s -> print_endline s) () : stream_t =
            (String.length msg));
       msg)
     ~on_complete:(fun ctx ->
-      let elapsed = Unix.gettimeofday () -. !start_time in
+      let elapsed = Time_compat.now () -. !start_time in
       log
         (Printf.sprintf
            "  [%s] stream complete: %d messages in %.3fs"

@@ -60,14 +60,14 @@ module P2C = struct
            })
         (Array.of_list backends)
     in
-    { backends; rng_state = int_of_float (Unix.gettimeofday () *. 1000.0) }
+    { backends; rng_state = int_of_float (Time_compat.now () *. 1000.0) }
   ;;
 
   (** Calculate effective score (lower is better) *)
   let score backend =
     let base_score = float backend.load /. backend.weight in
     (* Penalize recent failures with exponential decay *)
-    let now = Unix.gettimeofday () in
+    let now = Time_compat.now () in
     let failure_penalty =
       if backend.failures > 0
       then (
@@ -117,7 +117,7 @@ module P2C = struct
          if b.value == value
          then (
            b.failures <- b.failures + 1;
-           b.last_failure <- Unix.gettimeofday ()))
+           b.last_failure <- Time_compat.now ()))
       t.backends
   ;;
 
@@ -243,7 +243,7 @@ module AdaptiveBatching = struct
     { config
     ; pending = []
     ; pending_count = 0
-    ; last_batch_time = Unix.gettimeofday ()
+    ; last_batch_time = Time_compat.now ()
     ; avg_latency = 0.0
     ; current_batch_size = config.min_batch_size
     ; total_batches = 0
@@ -254,7 +254,7 @@ module AdaptiveBatching = struct
   let add t item : 'a list option =
     t.pending <- item :: t.pending;
     t.pending_count <- t.pending_count + 1;
-    let now = Unix.gettimeofday () in
+    let now = Time_compat.now () in
     let elapsed_ms = (now -. t.last_batch_time) *. 1000.0 in
     let should_flush =
       t.pending_count >= t.current_batch_size || elapsed_ms >= t.config.max_delay_ms
@@ -290,7 +290,7 @@ module AdaptiveBatching = struct
     let batch = List.rev t.pending in
     t.pending <- [];
     t.pending_count <- 0;
-    t.last_batch_time <- Unix.gettimeofday ();
+    t.last_batch_time <- Time_compat.now ();
     if batch <> [] then t.total_batches <- t.total_batches + 1;
     batch
   ;;
@@ -462,7 +462,7 @@ module CircuitBreaker = struct
 
   (** Check if request should be allowed *)
   let allow t =
-    let now = Unix.gettimeofday () *. 1000.0 in
+    let now = Time_compat.now () *. 1000.0 in
     match t.state with
     | Closed ->
       t.total_allowed <- t.total_allowed + 1;
@@ -506,7 +506,7 @@ module CircuitBreaker = struct
 
   (** Report failure *)
   let record_failure t =
-    t.last_failure_time <- Unix.gettimeofday () *. 1000.0;
+    t.last_failure_time <- Time_compat.now () *. 1000.0;
     match t.state with
     | Closed ->
       t.failure_count <- t.failure_count + 1;

@@ -215,7 +215,7 @@ let invoke_handler
   =
   (* Parse grpc-timeout header and compute timeout duration *)
   let timeout_seconds = timeout_seconds_of_metadata server metadata in
-  let deadline = timeout_seconds |> Option.map (fun t -> Unix.gettimeofday () +. t) in
+  let deadline = timeout_seconds |> Option.map (fun t -> Time_compat.now () +. t) in
   let ctx = Interceptor.context_with_metadata ~method_:path ~metadata ?deadline () in
   let base_handler _ctx =
     match method_def.Service.handler with
@@ -351,7 +351,7 @@ let request_handler ~sw ~clock (server : t) reqd =
        | Ok request_codec, Ok response_codec ->
          (match method_def.handler with
           | `Unary _ ->
-            let start_time = Unix.gettimeofday () in
+            let start_time = Time_compat.now () in
             Option.iter
               (fun m -> Metrics.record_call_start m ~method_:path)
               server.metrics;
@@ -378,7 +378,7 @@ let request_handler ~sw ~clock (server : t) reqd =
                          Metrics.record_call_end
                            m
                            ~method_:path
-                           ~latency_sec:(Unix.gettimeofday () -. start_time)
+                           ~latency_sec:(Time_compat.now () -. start_time)
                            ~success:true
                            ~request_size:(String.length full_body)
                            ~response_size:(String.length resp_body)
@@ -396,7 +396,7 @@ let request_handler ~sw ~clock (server : t) reqd =
                          Metrics.record_call_end
                            m
                            ~method_:path
-                           ~latency_sec:(Unix.gettimeofday () -. start_time)
+                           ~latency_sec:(Time_compat.now () -. start_time)
                            ~success:false
                            ~request_size:(String.length full_body)
                            ())
