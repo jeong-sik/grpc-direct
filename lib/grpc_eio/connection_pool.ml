@@ -103,7 +103,7 @@ module TargetPool = struct
     { id
     ; target = pool.target
     ; state = Idle
-    ; last_used = Unix.gettimeofday ()
+    ; last_used = Time_compat.now ()
     ; request_count = 0
     ; error_count = 0
     ; h2_conn = None
@@ -118,7 +118,7 @@ module TargetPool = struct
       match find_idle pool with
       | Some conn ->
         conn.state <- Busy;
-        conn.last_used <- Unix.gettimeofday ();
+        conn.last_used <- Time_compat.now ();
         Some conn
       | None when List.length pool.connections < pool.config.max_connections ->
         let conn = create_connection pool in
@@ -134,7 +134,7 @@ module TargetPool = struct
     with_lock pool (fun () ->
       pool.total_released <- pool.total_released + 1;
       conn.request_count <- conn.request_count + 1;
-      conn.last_used <- Unix.gettimeofday ();
+      conn.last_used <- Time_compat.now ();
       (* Check if connection should be retired *)
       let should_close =
         conn.error_count > 3
@@ -226,7 +226,7 @@ let report_error t conn =
 
 (** Cleanup idle connections across all targets *)
 let cleanup_idle t =
-  let now = Unix.gettimeofday () in
+  let now = Time_compat.now () in
   Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
     Hashtbl.iter (fun _ pool -> TargetPool.cleanup_idle pool now) t.pools)
 ;;

@@ -178,14 +178,14 @@ module Budget = struct
 
   let create ?(refill_interval = 10.0) ?(max_budget = 100) () : t =
     { remaining = max_budget
-    ; last_refill = Unix.gettimeofday ()
+    ; last_refill = Time_compat.now ()
     ; refill_interval
     ; max_budget
     }
   ;;
 
   let try_acquire (budget : t) : bool =
-    let now = Unix.gettimeofday () in
+    let now = Time_compat.now () in
     (* Refill if interval has passed *)
     if now -. budget.last_refill >= budget.refill_interval
     then (
