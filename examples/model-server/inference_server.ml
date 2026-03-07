@@ -48,38 +48,38 @@ end
 
 (** Server state for health check *)
 module ServerState = struct
-  let model_loaded = ref false
-  let request_count = ref 0
-  let error_count = ref 0
-  let start_time = ref 0.0
+  let model_loaded = Atomic.make false
+  let request_count = Atomic.make 0
+  let error_count = Atomic.make 0
+  let start_time = Atomic.make 0.0
 
   let init () =
-    start_time := Unix.gettimeofday ();
+    Atomic.set start_time (Unix.gettimeofday ());
     (* Simulate model loading *)
     Printf.printf "📦 Loading model...";
     Time_compat.sleep 0.5;
     (* Simulate load time *)
-    model_loaded := true;
+    Atomic.set model_loaded true;
     Printf.printf "✅ Model loaded"
   ;;
 
-  let is_healthy () = !model_loaded
+  let is_healthy () = Atomic.get model_loaded
 
   (* These are available for future metrics integration *)
-  let _uptime () = Unix.gettimeofday () -. !start_time
+  let _uptime () = Unix.gettimeofday () -. Atomic.get start_time
 
   let _stats () =
     Printf.sprintf
       "requests:%d,errors:%d,uptime:%.0fs"
-      !request_count
-      !error_count
+      (Atomic.get request_count)
+      (Atomic.get error_count)
       (_uptime ())
   ;;
 end
 
 (** Inference handler - unary RPC *)
 let infer (request_bytes : string) : string =
-  incr ServerState.request_count;
+  Atomic.incr ServerState.request_count;
   let request = InferRequest.of_bytes request_bytes in
   let start = Unix.gettimeofday () in
   let input_preview = String.sub request.input 0 (min 30 (String.length request.input)) in
