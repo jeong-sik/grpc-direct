@@ -13,10 +13,12 @@
       )
 
       (* Or manual acquire/release *)
-      let client = Pool.acquire ~sw ~env pool in
-      let result = Client.call_unary client ... in
-      Pool.release pool client;
-      result
+      match Pool.acquire ~sw ~env pool with
+      | Ok client ->
+        let result = Client.call_unary client ... in
+        Pool.release pool client;
+        result
+      | Error msg -> failwith msg
     ]} *)
 
 (** Pool configuration *)
@@ -60,10 +62,12 @@ val create
 
     - Returns an idle connection if available
     - Creates a new connection if below max_connections
-    - Blocks if max reached (or fails)
-
-    @raise Failure if pool is closed *)
-val acquire : sw:Eio.Switch.t -> env:Eio_unix.Stdenv.base -> t -> Client.t
+    - Returns [Error] if pool is closed or exhausted *)
+val acquire
+  :  sw:Eio.Switch.t
+  -> env:Eio_unix.Stdenv.base
+  -> t
+  -> (Client.t, string) result
 
 (** Release a connection back to the pool *)
 val release : t -> Client.t -> unit
@@ -81,7 +85,7 @@ val with_connection
   -> env:Eio_unix.Stdenv.base
   -> t
   -> (Client.t -> 'a)
-  -> 'a
+  -> ('a, string) result
 
 (** Close the pool and release all connections *)
 val close : t -> unit
