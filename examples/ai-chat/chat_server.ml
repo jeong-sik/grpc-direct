@@ -27,20 +27,28 @@ module ChatRequest = struct
         match int_of_string_opt max_tokens_s with
         | Some n when n > 0 && n <= 8192 -> n
         | Some _ ->
-          Printf.eprintf "Warning: max_tokens out of bounds (1..8192), using default %d\n%!" 100;
+          Printf.eprintf
+            "Warning: max_tokens out of bounds (1..8192), using default %d\n%!"
+            100;
           100
         | None ->
-          Printf.eprintf "WARNING: invalid max_tokens %S, using default 100\n%!" max_tokens_s;
+          Printf.eprintf
+            "WARNING: invalid max_tokens %S, using default 100\n%!"
+            max_tokens_s;
           100
       in
       let temperature =
         match float_of_string_opt temperature_s with
         | Some f when f >= 0.0 && f <= 2.0 && Float.is_finite f -> f
         | Some _ ->
-          Printf.eprintf "Warning: temperature out of bounds (0.0..2.0), using default %.1f\n%!" 0.7;
+          Printf.eprintf
+            "Warning: temperature out of bounds (0.0..2.0), using default %.1f\n%!"
+            0.7;
           0.7
         | None ->
-          Printf.eprintf "WARNING: invalid temperature %S, using default 0.7\n%!" temperature_s;
+          Printf.eprintf
+            "WARNING: invalid temperature %S, using default 0.7\n%!"
+            temperature_s;
           0.7
       in
       { model; prompt; max_tokens; temperature }
@@ -153,7 +161,10 @@ let metrics_interceptor () : string Grpc_eio.Interceptor.t =
     let start = Unix.gettimeofday () in
     let result = next ctx in
     let elapsed = Unix.gettimeofday () -. start in
-    Printf.printf "📊 [Metrics] Request #%d completed in %.3fs" (Atomic.get request_count) elapsed;
+    Printf.printf
+      "📊 [Metrics] Request #%d completed in %.3fs"
+      (Atomic.get request_count)
+      elapsed;
     result)
 ;;
 
