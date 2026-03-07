@@ -561,9 +561,11 @@ let serve ?config ~sw ~env (server : Server.t) =
   let tls_server_config =
     match config.tls with
     | Some tls ->
-      let cfg = Tls_config.load_http1 tls in
-      Eio.traceln "🔒 gRPC-Web TLS enabled (ALPN: http/1.1)";
-      Some cfg
+      (match Tls_config.load_http1 tls with
+       | Ok cfg ->
+         Eio.traceln "🔒 gRPC-Web TLS enabled (ALPN: http/1.1)";
+         Some cfg
+       | Error msg -> failwith ("TLS configuration error: " ^ msg))
     | None -> None
   in
   let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true config.addr in

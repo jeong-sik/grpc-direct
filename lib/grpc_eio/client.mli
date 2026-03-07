@@ -206,13 +206,18 @@ val config_with_credentials : target:string -> credentials:channel_credentials -
 (** Client connection state *)
 type t
 
+(** Specific exception for client connection errors.
+    Raised by {!connect} when the target URI is invalid or TLS configuration fails.
+    Replaces generic [Failure] to allow callers to catch connection errors distinctly. *)
+exception Connection_error of string
+
 (** Create a new client connection.
 
     @param config Optional client configuration
     @param sw Eio switch for resource management
     @param env Eio environment
     @param target Target URI (e.g., "http://localhost:50051")
-    @raise Failure if target URI is invalid *)
+    @raise Connection_error if target URI is invalid or TLS configuration fails *)
 val connect : ?config:config -> sw:Eio.Switch.t -> env:Eio_unix.Stdenv.base -> string -> t
 
 (** Add an interceptor to the client.

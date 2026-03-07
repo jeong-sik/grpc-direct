@@ -372,61 +372,71 @@ let read_file path =
 (** Build TLS client configuration.
     For https:// targets, creates TLS config for server verification.
     Supports custom CA and client certs (mTLS). *)
-let build_tls_client_config ~host (tls_cfg : tls_config option) : Tls.Config.client option
+let build_tls_client_config ~host (tls_cfg : tls_config option)
+  : (Tls.Config.client option, string) result
   =
   (* Build authenticator for server cert verification *)
-  let authenticator =
+  let authenticator_result =
     match tls_cfg with
     | Some { verify_peer = false; _ } ->
       (* Explicitly insecure - accept any server certificate. *)
       let time () = Some (Ptime_clock.now ()) in
       ignore time;
-      fun ?ip:_ ~host:_ _certs -> Ok None
+      Ok (fun ?ip:_ ~host:_ _certs -> Ok None)
     | Some { ca_file = Some ca_file; _ } ->
       (* Custom CA *)
       let ca_pem = read_file ca_file in
       (match X509.Certificate.decode_pem_multiple ca_pem with
-       | Error (`Msg msg) -> failwith ("CA certificate error: " ^ msg)
+       | Error (`Msg msg) -> Error ("CA certificate error: " ^ msg)
        | Ok ca_certs ->
          let time () = Some (Ptime_clock.now ()) in
-         X509.Authenticator.chain_of_trust ~time ca_certs)
+         Ok (X509.Authenticator.chain_of_trust ~time ca_certs))
     | _ ->
       (* System CA store (secure default) *)
       (match Ca_certs.authenticator () with
-       | Ok auth -> auth
-       | Error (`Msg msg) -> failwith ("CA certificate error: " ^ msg))
+       | Ok auth -> Ok auth
+       | Error (`Msg msg) -> Error ("CA certificate error: " ^ msg))
   in
-  (* Build client certificates for mTLS *)
-  let certificates =
-    match tls_cfg with
-    | Some { cert_file = Some cert_file; key_file = Some key_file; _ } ->
-      let cert_pem = read_file cert_file in
-      let key_pem = read_file key_file in
-      (match
-         ( X509.Certificate.decode_pem_multiple cert_pem
-         , X509.Private_key.decode_pem key_pem )
-       with
-       | Ok certs, Ok key -> Some (`Single (certs, key))
-       | _ -> None)
-    | _ -> None
-  in
-  match
-    Tls.Config.client
-      ~authenticator
-      ?certificates
-      ~alpn_protocols:[ "h2" ]
-      ~peer_name:(Domain_name.of_string_exn host |> Domain_name.host_exn)
-      ()
-  with
-  | Ok config -> Some config
-  | Error (`Msg msg) -> failwith ("TLS config error: " ^ msg)
+  match authenticator_result with
+  | Error msg -> Error msg
+  | Ok authenticator ->
+    (* Build client certificates for mTLS *)
+    let certificates =
+      match tls_cfg with
+      | Some { cert_file = Some cert_file; key_file = Some key_file; _ } ->
+        let cert_pem = read_file cert_file in
+        let key_pem = read_file key_file in
+        (match
+           ( X509.Certificate.decode_pem_multiple cert_pem
+           , X509.Private_key.decode_pem key_pem )
+         with
+         | Ok certs, Ok key -> Some (`Single (certs, key))
+         | _ -> None)
+      | _ -> None
+    in
+    (match
+       Tls.Config.client
+         ~authenticator
+         ?certificates
+         ~alpn_protocols:[ "h2" ]
+         ~peer_name:(Domain_name.of_string_exn host |> Domain_name.host_exn)
+         ()
+     with
+     | Ok config -> Ok (Some config)
+     | Error (`Msg msg) -> Error ("TLS config error: " ^ msg))
 ;;
+
+(** Specific exception for client connection errors.
+    Replaces generic [Failure] to allow callers to catch connection
+    errors distinctly from other failures. *)
+exception Connection_error of string
 
 (** Create a new client connection.
 
     @param sw Eio switch for resource management
     @param env Eio environment
-    @param target Target URI (e.g., "http://localhost:50051" or "https://...") *)
+    @param target Target URI (e.g., "http://localhost:50051" or "https://...")
+    @raise Connection_error if the target URI is invalid or TLS configuration fails *)
 let connect ?(config : config option) ~sw:_ ~env:_ (target : string) : t =
   let config =
     match config with
@@ -434,7 +444,7 @@ let connect ?(config : config option) ~sw:_ ~env:_ (target : string) : t =
     | None -> default_config ~target
   in
   match parse_target target with
-  | None -> failwith (Printf.sprintf "Invalid target URI: %s" target)
+  | None -> raise (Connection_error (Printf.sprintf "Invalid target URI: %s" target))
   | Some (scheme, host, port) ->
     (* Get TLS config from credentials (preferred) or legacy tls field *)
     let effective_tls =
@@ -450,7 +460,12 @@ let connect ?(config : config option) ~sw:_ ~env:_ (target : string) : t =
     in
     (* Build TLS config for https:// targets *)
     let tls_client_config =
-      if scheme = "https" then build_tls_client_config ~host effective_tls else None
+      if scheme = "https"
+      then (
+        match build_tls_client_config ~host effective_tls with
+        | Ok cfg -> cfg
+        | Error msg -> raise (Connection_error msg))
+      else None
     in
     { config
     ; host
@@ -532,135 +547,145 @@ let call_unary
     (* Add call credentials headers (e.g., authorization) *)
     let headers = add_metadata headers client.call_credentials_headers in
     (* Get or create cached connection for connection reuse (HTTP/2 multiplexing) *)
-    let get_or_create_connection () =
+    let get_or_create_connection () : (H2.Client_connection.t, Grpc_core.Status.t) result =
       match client.h2_connection with
-      | Some conn -> conn
+      | Some conn -> Ok conn
       | None ->
         (* Create new socket and connection *)
         let service = string_of_int client.port in
         let addrs = Eio.Net.getaddrinfo_stream net ~service client.host in
-        let socket =
-          match addrs with
-          | [] ->
-            failwith (Printf.sprintf "Cannot resolve: %s:%d" client.host client.port)
-          | addr :: _ -> Eio.Net.connect ~sw net addr
-        in
-        client.socket <- Some (socket :> Eio.Flow.two_way_ty Eio.Std.r);
-        let conn =
-          match client.tls_client_config with
-          | Some tls_config ->
-            let tls_flow = Tls_eio.client_of_flow tls_config socket in
-            Flow_handler.create_client_connection
-              ~sw
-              ~error_handler:(fun _ -> ())
-              tls_flow
-          | None ->
-            let h2_client =
-              H2_eio.Client.create_connection ~sw ~error_handler:(fun _ -> ()) socket
-            in
-            h2_client.connection
-        in
-        client.h2_connection <- Some conn;
-        conn
+        (match addrs with
+         | [] ->
+           Error
+             Grpc_core.Status.
+               { code = Unavailable
+               ; message = Printf.sprintf "Cannot resolve: %s:%d" client.host client.port
+               ; details = None
+               }
+         | addr :: _ ->
+           let socket = Eio.Net.connect ~sw net addr in
+           client.socket <- Some (socket :> Eio.Flow.two_way_ty Eio.Std.r);
+           let conn =
+             match client.tls_client_config with
+             | Some tls_config ->
+               let tls_flow = Tls_eio.client_of_flow tls_config socket in
+               Flow_handler.create_client_connection
+                 ~sw
+                 ~error_handler:(fun _ -> ())
+                 tls_flow
+             | None ->
+               let h2_client =
+                 H2_eio.Client.create_connection ~sw ~error_handler:(fun _ -> ()) socket
+               in
+               h2_client.connection
+           in
+           client.h2_connection <- Some conn;
+           Ok conn)
     in
-    let connection = get_or_create_connection () in
-    (* Track response using Eio.Promise for proper synchronization *)
-    (* Use Buffer for O(1) amortized string concatenation instead of O(n²) *)
-    let response_buffer = Buffer.create 4096 in
-    let response_headers = ref H2.Headers.empty in
-    let response_trailers = ref H2.Headers.empty in
-    let response_promise, response_resolver = Eio.Promise.create () in
-    (* Trailers handler - gRPC sends grpc-status in trailers *)
-    let trailers_handler trailers = response_trailers := trailers in
-    let response_handler (response : H2.Response.t) body =
-      response_headers := response.headers;
-      let rec read () =
-        H2.Body.Reader.schedule_read
-          body
-          ~on_eof:(fun () ->
-            (* Check grpc-status from trailers first, then headers *)
-            let get_header name =
-              match H2.Headers.get !response_trailers name with
-              | Some v -> Some v
-              | None -> H2.Headers.get !response_headers name
-            in
-            let status_code_opt =
-              Option.bind (get_header "grpc-status") int_of_string_opt
-            in
-            let message =
-              get_header "grpc-message"
-              |> Option.map percent_decode
-              |> Option.value ~default:"Unknown error"
-            in
-            let details =
-              Option.bind (get_header "grpc-status-details-bin") Metadata.decode_bin_value
-            in
-            match status_code_opt with
-            | Some 0 ->
-              Eio.Promise.resolve response_resolver (Ok (Buffer.contents response_buffer))
-            | Some code ->
-              Eio.Promise.resolve
-                response_resolver
-                (Error
-                   Grpc_core.Status.
-                     { code = Grpc_core.Status.code_of_int code; message; details })
-            | None ->
-              let http_code = H2.Status.to_code response.status in
-              let code = map_http_status_code http_code in
-              let msg =
-                Printf.sprintf
-                  "missing grpc-status, inferred from HTTP status code %d"
-                  http_code
-              in
-              Eio.Promise.resolve
-                response_resolver
-                (Error Grpc_core.Status.{ code; message = msg; details }))
-          ~on_read:(fun bs ~off ~len ->
-            (* O(1) buffer append instead of O(n) string concat *)
-            Buffer.add_string response_buffer (Bigstringaf.substring bs ~off ~len);
-            read ())
-      in
-      read ()
-    in
-    let _error_handler error =
-      let msg =
-        match error with
-        | `Malformed_response s -> Printf.sprintf "Malformed response: %s" s
-        | `Invalid_response_body_length _ -> "Invalid response body length"
-        | `Exn exn -> Printexc.to_string exn
-        | `Protocol_error (code, msg) ->
-          Printf.sprintf "Protocol error %s: %s" (H2.Error_code.to_string code) msg
-      in
-      Eio.Promise.resolve
-        response_resolver
-        (Error Grpc_core.Status.{ code = Unavailable; message = msg; details = None })
-    in
-    (* Send request with trailers handler for gRPC status - using cached connection *)
-    let request_body =
-      H2.Client_connection.request
-        connection
-        (H2.Request.create ~scheme:client.scheme ~headers `POST path)
-        ~error_handler:(fun _ -> ())
-        ~trailers_handler
-        ~response_handler
-    in
-    H2.Body.Writer.write_string request_body framed_request;
-    H2.Body.Writer.close request_body;
-    (* Wait for response using Eio.Promise (no busy-wait) *)
-    let result = Eio.Promise.await response_promise in
-    (* Decode the response frame *)
-    (match result with
+    (match get_or_create_connection () with
      | Error e -> Error e
-     | Ok body ->
-       (match Grpc_core.Message.decode ~codec body with
-        | Ok decoded -> Ok decoded
-        | Error e ->
-          Error
-            Grpc_core.Status.
-              { code = Internal
-              ; message = Printf.sprintf "Failed to decode response: %s" e
-              ; details = None
-              }))
+     | Ok connection ->
+       (* Track response using Eio.Promise for proper synchronization *)
+       (* Use Buffer for O(1) amortized string concatenation instead of O(n²) *)
+       let response_buffer = Buffer.create 4096 in
+       let response_headers = ref H2.Headers.empty in
+       let response_trailers = ref H2.Headers.empty in
+       let response_promise, response_resolver = Eio.Promise.create () in
+       (* Trailers handler - gRPC sends grpc-status in trailers *)
+       let trailers_handler trailers = response_trailers := trailers in
+       let response_handler (response : H2.Response.t) body =
+         response_headers := response.headers;
+         let rec read () =
+           H2.Body.Reader.schedule_read
+             body
+             ~on_eof:(fun () ->
+               (* Check grpc-status from trailers first, then headers *)
+               let get_header name =
+                 match H2.Headers.get !response_trailers name with
+                 | Some v -> Some v
+                 | None -> H2.Headers.get !response_headers name
+               in
+               let status_code_opt =
+                 Option.bind (get_header "grpc-status") int_of_string_opt
+               in
+               let message =
+                 get_header "grpc-message"
+                 |> Option.map percent_decode
+                 |> Option.value ~default:"Unknown error"
+               in
+               let details =
+                 Option.bind
+                   (get_header "grpc-status-details-bin")
+                   Metadata.decode_bin_value
+               in
+               match status_code_opt with
+               | Some 0 ->
+                 Eio.Promise.resolve
+                   response_resolver
+                   (Ok (Buffer.contents response_buffer))
+               | Some code ->
+                 Eio.Promise.resolve
+                   response_resolver
+                   (Error
+                      Grpc_core.Status.
+                        { code = Grpc_core.Status.code_of_int code; message; details })
+               | None ->
+                 let http_code = H2.Status.to_code response.status in
+                 let code = map_http_status_code http_code in
+                 let msg =
+                   Printf.sprintf
+                     "missing grpc-status, inferred from HTTP status code %d"
+                     http_code
+                 in
+                 Eio.Promise.resolve
+                   response_resolver
+                   (Error Grpc_core.Status.{ code; message = msg; details }))
+             ~on_read:(fun bs ~off ~len ->
+               (* O(1) buffer append instead of O(n) string concat *)
+               Buffer.add_string response_buffer (Bigstringaf.substring bs ~off ~len);
+               read ())
+         in
+         read ()
+       in
+       let _error_handler error =
+         let msg =
+           match error with
+           | `Malformed_response s -> Printf.sprintf "Malformed response: %s" s
+           | `Invalid_response_body_length _ -> "Invalid response body length"
+           | `Exn exn -> Printexc.to_string exn
+           | `Protocol_error (code, msg) ->
+             Printf.sprintf "Protocol error %s: %s" (H2.Error_code.to_string code) msg
+         in
+         Eio.Promise.resolve
+           response_resolver
+           (Error Grpc_core.Status.{ code = Unavailable; message = msg; details = None })
+       in
+       (* Send request with trailers handler for gRPC status - using cached connection *)
+       let request_body =
+         H2.Client_connection.request
+           connection
+           (H2.Request.create ~scheme:client.scheme ~headers `POST path)
+           ~error_handler:(fun _ -> ())
+           ~trailers_handler
+           ~response_handler
+       in
+       H2.Body.Writer.write_string request_body framed_request;
+       H2.Body.Writer.close request_body;
+       (* Wait for response using Eio.Promise (no busy-wait) *)
+       let result = Eio.Promise.await response_promise in
+       (* Decode the response frame *)
+       (match result with
+        | Error e -> Error e
+        | Ok body ->
+          (match Grpc_core.Message.decode ~codec body with
+           | Ok decoded -> Ok decoded
+           | Error e ->
+             Error
+               Grpc_core.Status.
+                 { code = Internal
+                 ; message = Printf.sprintf "Failed to decode response: %s" e
+                 ; details = None
+                 })))
 ;;
 
 (** Call a server streaming RPC method.
@@ -740,7 +765,17 @@ let call_server_streaming
     let addrs = Eio.Net.getaddrinfo_stream net ~service client.host in
     let socket =
       match addrs with
-      | [] -> failwith (Printf.sprintf "Cannot resolve: %s:%d" client.host client.port)
+      | [] ->
+        Grpc_stream.add
+          stream
+          (Error
+             Grpc_core.Status.
+               { code = Unavailable
+               ; message = Printf.sprintf "Cannot resolve: %s:%d" client.host client.port
+               ; details = None
+               });
+        Grpc_stream.close stream;
+        raise Exit
       | addr :: _ -> Eio.Net.connect ~sw net addr
     in
     let buffer = ref "" in
@@ -908,125 +943,130 @@ let call_client_streaming
   (* Connect to server *)
   let port_str = string_of_int client.port in
   let addrs = Eio.Net.getaddrinfo_stream net ~service:port_str client.host in
-  let socket =
-    match addrs with
-    | [] -> failwith (Printf.sprintf "Cannot resolve: %s:%d" client.host client.port)
-    | addr :: _ -> Eio.Net.connect ~sw net addr
-  in
-  (* Track response - using Buffer for O(1) amortized append *)
-  let response_buffer = Buffer.create 4096 in
-  let response_headers = ref H2.Headers.empty in
-  let response_trailers = ref H2.Headers.empty in
-  let response_promise, response_resolver = Eio.Promise.create () in
-  let trailers_handler trailers = response_trailers := trailers in
-  let response_handler (response : H2.Response.t) body =
-    response_headers := response.headers;
-    let rec read () =
-      H2.Body.Reader.schedule_read
-        body
-        ~on_eof:(fun () ->
-          let get_header name =
-            match H2.Headers.get !response_trailers name with
-            | Some v -> Some v
-            | None -> H2.Headers.get !response_headers name
-          in
-          let status_code_opt =
-            Option.bind (get_header "grpc-status") int_of_string_opt
-          in
-          let message =
-            get_header "grpc-message"
-            |> Option.map percent_decode
-            |> Option.value ~default:"Unknown error"
-          in
-          let details =
-            Option.bind (get_header "grpc-status-details-bin") Metadata.decode_bin_value
-          in
-          match status_code_opt with
-          | Some 0 ->
-            Eio.Promise.resolve response_resolver (Ok (Buffer.contents response_buffer))
-          | Some code ->
-            Eio.Promise.resolve
-              response_resolver
-              (Error
-                 Grpc_core.Status.
-                   { code = Grpc_core.Status.code_of_int code; message; details })
-          | None ->
-            let http_code = H2.Status.to_code response.status in
-            let code = map_http_status_code http_code in
-            let msg =
-              Printf.sprintf
-                "missing grpc-status, inferred from HTTP status code %d"
-                http_code
+  match addrs with
+  | [] ->
+    Error
+      Grpc_core.Status.
+        { code = Unavailable
+        ; message = Printf.sprintf "Cannot resolve: %s:%d" client.host client.port
+        ; details = None
+        }
+  | addr :: _ ->
+    let socket = Eio.Net.connect ~sw net addr in
+    (* Track response - using Buffer for O(1) amortized append *)
+    let response_buffer = Buffer.create 4096 in
+    let response_headers = ref H2.Headers.empty in
+    let response_trailers = ref H2.Headers.empty in
+    let response_promise, response_resolver = Eio.Promise.create () in
+    let trailers_handler trailers = response_trailers := trailers in
+    let response_handler (response : H2.Response.t) body =
+      response_headers := response.headers;
+      let rec read () =
+        H2.Body.Reader.schedule_read
+          body
+          ~on_eof:(fun () ->
+            let get_header name =
+              match H2.Headers.get !response_trailers name with
+              | Some v -> Some v
+              | None -> H2.Headers.get !response_headers name
             in
-            Eio.Promise.resolve
-              response_resolver
-              (Error Grpc_core.Status.{ code; message = msg; details }))
-        ~on_read:(fun bs ~off ~len ->
-          Buffer.add_string response_buffer (Bigstringaf.substring bs ~off ~len);
-          read ())
+            let status_code_opt =
+              Option.bind (get_header "grpc-status") int_of_string_opt
+            in
+            let message =
+              get_header "grpc-message"
+              |> Option.map percent_decode
+              |> Option.value ~default:"Unknown error"
+            in
+            let details =
+              Option.bind (get_header "grpc-status-details-bin") Metadata.decode_bin_value
+            in
+            match status_code_opt with
+            | Some 0 ->
+              Eio.Promise.resolve response_resolver (Ok (Buffer.contents response_buffer))
+            | Some code ->
+              Eio.Promise.resolve
+                response_resolver
+                (Error
+                   Grpc_core.Status.
+                     { code = Grpc_core.Status.code_of_int code; message; details })
+            | None ->
+              let http_code = H2.Status.to_code response.status in
+              let code = map_http_status_code http_code in
+              let msg =
+                Printf.sprintf
+                  "missing grpc-status, inferred from HTTP status code %d"
+                  http_code
+              in
+              Eio.Promise.resolve
+                response_resolver
+                (Error Grpc_core.Status.{ code; message = msg; details }))
+          ~on_read:(fun bs ~off ~len ->
+            Buffer.add_string response_buffer (Bigstringaf.substring bs ~off ~len);
+            read ())
+      in
+      read ()
     in
-    read ()
-  in
-  let error_handler error =
-    let msg =
-      match error with
-      | `Malformed_response s -> Printf.sprintf "Malformed response: %s" s
-      | `Invalid_response_body_length _ -> "Invalid response body length"
-      | `Exn exn -> Printexc.to_string exn
-      | `Protocol_error (code, msg) ->
-        Printf.sprintf "Protocol error %s: %s" (H2.Error_code.to_string code) msg
+    let error_handler error =
+      let msg =
+        match error with
+        | `Malformed_response s -> Printf.sprintf "Malformed response: %s" s
+        | `Invalid_response_body_length _ -> "Invalid response body length"
+        | `Exn exn -> Printexc.to_string exn
+        | `Protocol_error (code, msg) ->
+          Printf.sprintf "Protocol error %s: %s" (H2.Error_code.to_string code) msg
+      in
+      Eio.Promise.resolve
+        response_resolver
+        (Error Grpc_core.Status.{ code = Unavailable; message = msg; details = None })
     in
-    Eio.Promise.resolve
-      response_resolver
-      (Error Grpc_core.Status.{ code = Unavailable; message = msg; details = None })
-  in
-  (* Create HTTP/2 connection - TLS if configured *)
-  let connection : H2.Client_connection.t =
-    match client.tls_client_config with
-    | Some tls_config ->
-      let tls_flow = Tls_eio.client_of_flow tls_config socket in
-      Flow_handler.create_client_connection ~sw ~error_handler tls_flow
-    | None ->
-      let h2_client = H2_eio.Client.create_connection ~sw ~error_handler socket in
-      h2_client.connection
-  in
-  (* Send request with streaming body *)
-  let request_body =
-    H2.Client_connection.request
-      connection
-      (H2.Request.create ~scheme:client.scheme ~headers `POST path)
-      ~error_handler:(fun _ -> ())
-      ~response_handler
-      ~trailers_handler
-  in
-  (* Spawn fiber to write stream of requests *)
-  Eio.Fiber.fork ~sw (fun () ->
-    let rec write_loop () =
-      match Grpc_stream.take requests with
-      | req ->
-        (match Grpc_core.Message.encode ~codec req with
-         | Ok framed -> H2.Body.Writer.write_string request_body framed
-         | Error _ -> ());
-        (* Skip malformed messages *)
-        write_loop ()
-      | exception End_of_file -> H2.Body.Writer.close request_body
+    (* Create HTTP/2 connection - TLS if configured *)
+    let connection : H2.Client_connection.t =
+      match client.tls_client_config with
+      | Some tls_config ->
+        let tls_flow = Tls_eio.client_of_flow tls_config socket in
+        Flow_handler.create_client_connection ~sw ~error_handler tls_flow
+      | None ->
+        let h2_client = H2_eio.Client.create_connection ~sw ~error_handler socket in
+        h2_client.connection
     in
-    write_loop ());
-  (* Wait for response *)
-  let result = Eio.Promise.await response_promise in
-  (* Decode response *)
-  match result with
-  | Error e -> Error e
-  | Ok body ->
-    (match Grpc_core.Message.decode ~codec body with
-     | Ok decoded -> Ok decoded
-     | Error e ->
-       Error
-         Grpc_core.Status.
-           { code = Internal
-           ; message = Printf.sprintf "Failed to decode response: %s" e
-           ; details = None
-           })
+    (* Send request with streaming body *)
+    let request_body =
+      H2.Client_connection.request
+        connection
+        (H2.Request.create ~scheme:client.scheme ~headers `POST path)
+        ~error_handler:(fun _ -> ())
+        ~response_handler
+        ~trailers_handler
+    in
+    (* Spawn fiber to write stream of requests *)
+    Eio.Fiber.fork ~sw (fun () ->
+      let rec write_loop () =
+        match Grpc_stream.take requests with
+        | req ->
+          (match Grpc_core.Message.encode ~codec req with
+           | Ok framed -> H2.Body.Writer.write_string request_body framed
+           | Error _ -> ());
+          (* Skip malformed messages *)
+          write_loop ()
+        | exception End_of_file -> H2.Body.Writer.close request_body
+      in
+      write_loop ());
+    (* Wait for response *)
+    let result = Eio.Promise.await response_promise in
+    (* Decode response *)
+    (match result with
+     | Error e -> Error e
+     | Ok body ->
+       (match Grpc_core.Message.decode ~codec body with
+        | Ok decoded -> Ok decoded
+        | Error e ->
+          Error
+            Grpc_core.Status.
+              { code = Internal
+              ; message = Printf.sprintf "Failed to decode response: %s" e
+              ; details = None
+              }))
 ;;
 
 (** Call a bidirectional streaming RPC method.
@@ -1237,69 +1277,74 @@ let ping ~sw ~env (client : t) : (unit, Grpc_core.Status.t) result =
   (* Connect to server *)
   let service = string_of_int client.port in
   let addrs = Eio.Net.getaddrinfo_stream net ~service client.host in
-  let socket =
-    match addrs with
-    | [] -> failwith (Printf.sprintf "Cannot resolve: %s:%d" client.host client.port)
-    | addr :: _ -> Eio.Net.connect ~sw net addr
-  in
-  let ping_promise, ping_resolver = Eio.Promise.create () in
-  let error_handler error =
-    let msg =
-      match error with
-      | `Malformed_response s -> Printf.sprintf "Malformed response: %s" s
-      | `Invalid_response_body_length _ -> "Invalid response body length"
-      | `Exn exn -> Printexc.to_string exn
-      | `Protocol_error (code, msg) ->
-        Printf.sprintf "Protocol error %s: %s" (H2.Error_code.to_string code) msg
-    in
-    Eio.Promise.resolve
-      ping_resolver
-      (Error Grpc_core.Status.{ code = Unavailable; message = msg; details = None })
-  in
-  (* Create HTTP/2 connection - TLS if configured *)
-  let connection : H2.Client_connection.t =
-    match client.tls_client_config with
-    | Some tls_config ->
-      let tls_flow = Tls_eio.client_of_flow tls_config socket in
-      Flow_handler.create_client_connection ~sw ~error_handler tls_flow
-    | None ->
-      let h2_client = H2_eio.Client.create_connection ~sw ~error_handler socket in
-      h2_client.connection
-  in
-  (* Send PING frame *)
-  H2.Client_connection.ping connection (function
-    | Ok () -> Eio.Promise.resolve ping_resolver (Ok ())
-    | Error `EOF ->
-      Eio.Promise.resolve
-        ping_resolver
-        (Error
-           Grpc_core.Status.
-             { code = Unavailable; message = "Connection closed (EOF)"; details = None }));
-  (* Wait for PING acknowledgement with timeout *)
-  let timeout_secs =
-    match client.config.keepalive with
-    | Some ka -> ka.timeout
-    | None -> 20.0 (* Default 20 seconds *)
-  in
-  let clock = Eio.Stdenv.clock env in
-  (* Race between ping response and timeout *)
-  let result = ref None in
-  Eio.Fiber.first
-    (fun () -> result := Some (Eio.Promise.await ping_promise))
-    (fun () ->
-       Eio.Time.sleep clock timeout_secs;
-       result
-       := Some
-            (Error
-               Grpc_core.Status.
-                 { code = Deadline_exceeded
-                 ; message = Printf.sprintf "PING timeout after %.1fs" timeout_secs
-                 ; details = None
-                 }));
-  match !result with
-  | Some r -> r
-  | None ->
+  match addrs with
+  | [] ->
     Error
       Grpc_core.Status.
-        { code = Internal; message = "Unexpected: no result"; details = None }
+        { code = Unavailable
+        ; message = Printf.sprintf "Cannot resolve: %s:%d" client.host client.port
+        ; details = None
+        }
+  | addr :: _ ->
+    let socket = Eio.Net.connect ~sw net addr in
+    let ping_promise, ping_resolver = Eio.Promise.create () in
+    let error_handler error =
+      let msg =
+        match error with
+        | `Malformed_response s -> Printf.sprintf "Malformed response: %s" s
+        | `Invalid_response_body_length _ -> "Invalid response body length"
+        | `Exn exn -> Printexc.to_string exn
+        | `Protocol_error (code, msg) ->
+          Printf.sprintf "Protocol error %s: %s" (H2.Error_code.to_string code) msg
+      in
+      Eio.Promise.resolve
+        ping_resolver
+        (Error Grpc_core.Status.{ code = Unavailable; message = msg; details = None })
+    in
+    (* Create HTTP/2 connection - TLS if configured *)
+    let connection : H2.Client_connection.t =
+      match client.tls_client_config with
+      | Some tls_config ->
+        let tls_flow = Tls_eio.client_of_flow tls_config socket in
+        Flow_handler.create_client_connection ~sw ~error_handler tls_flow
+      | None ->
+        let h2_client = H2_eio.Client.create_connection ~sw ~error_handler socket in
+        h2_client.connection
+    in
+    (* Send PING frame *)
+    H2.Client_connection.ping connection (function
+      | Ok () -> Eio.Promise.resolve ping_resolver (Ok ())
+      | Error `EOF ->
+        Eio.Promise.resolve
+          ping_resolver
+          (Error
+             Grpc_core.Status.
+               { code = Unavailable; message = "Connection closed (EOF)"; details = None }));
+    (* Wait for PING acknowledgement with timeout *)
+    let timeout_secs =
+      match client.config.keepalive with
+      | Some ka -> ka.timeout
+      | None -> 20.0 (* Default 20 seconds *)
+    in
+    let clock = Eio.Stdenv.clock env in
+    (* Race between ping response and timeout *)
+    let result = ref None in
+    Eio.Fiber.first
+      (fun () -> result := Some (Eio.Promise.await ping_promise))
+      (fun () ->
+         Eio.Time.sleep clock timeout_secs;
+         result
+         := Some
+              (Error
+                 Grpc_core.Status.
+                   { code = Deadline_exceeded
+                   ; message = Printf.sprintf "PING timeout after %.1fs" timeout_secs
+                   ; details = None
+                   }));
+    (match !result with
+     | Some r -> r
+     | None ->
+       Error
+         Grpc_core.Status.
+           { code = Internal; message = "Unexpected: no result"; details = None })
 ;;

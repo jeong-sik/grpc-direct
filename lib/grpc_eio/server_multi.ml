@@ -92,8 +92,9 @@ let serve_multi ?(domains = 0) ~env (server : Server.t) : unit =
       match config.tls with
       | Some tls ->
         (* Each domain needs its own TLS config *)
-        let tls_config = Tls_config.load tls in
-        Some tls_config
+        (match Tls_config.load tls with
+         | Ok tls_config -> Some tls_config
+         | Error msg -> failwith ("TLS configuration error: " ^ msg))
       | None -> None
     in
     let handle_connection sock addr =
@@ -144,8 +145,9 @@ let serve_multi ?(domains = 0) ~env (server : Server.t) : unit =
    let tls_server_config =
      match config.tls with
      | Some tls ->
-       let tls_config = Tls_config.load tls in
-       Some tls_config
+       (match Tls_config.load tls with
+        | Ok tls_config -> Some tls_config
+        | Error msg -> failwith ("TLS configuration error: " ^ msg))
      | None -> None
    in
    let handle_connection sock addr =
