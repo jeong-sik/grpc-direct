@@ -28,8 +28,8 @@ val decode : ?max_size:int -> codec:Codec.t -> string -> (string, string) result
 
 (** Reason why {!extract_all} failed. *)
 type extract_error =
-  | Oversized of int  (** Message size exceeded [max_size]. *)
-  | Decode_error of string  (** Decompression or framing error. *)
+  | Oversized of int (** Message size exceeded [max_size]. *)
+  | Decode_error of string (** Decompression or framing error. *)
 
 (** Extract all complete messages from a buffer.
 
