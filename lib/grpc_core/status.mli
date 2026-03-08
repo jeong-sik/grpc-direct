@@ -46,7 +46,7 @@ val ok : t
     @param details Optional detail string.
     @param code The gRPC status code.
     @param message Human-readable error message. *)
-val error : ?details:string option -> code -> string -> t
+val error : ?details:string -> code -> string -> t
 
 (** [is_ok t] returns [true] when [t.code = OK]. *)
 val is_ok : t -> bool
