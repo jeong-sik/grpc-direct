@@ -71,7 +71,7 @@ let test_error_helper () =
   assert (err.code = Not_found);
   assert (err.message = "User not found");
   assert (not (is_ok err));
-  let err_with_details = error ~details:(Some "id=123") Internal "Server error" in
+  let err_with_details = error ~details:"id=123" Internal "Server error" in
   assert (err_with_details.details = Some "id=123");
   Printf.printf "  ✓ Error helper function: OK\n%!"
 ;;

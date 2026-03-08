@@ -72,7 +72,7 @@ let int_to_code = function
 let code_of_int = int_to_code
 
 let ok = { code = OK; message = ""; details = None }
-let error ?(details = None) code message = { code; message; details }
+let error ?details code message = { code; message; details }
 let is_ok t = t.code = OK
 
 let to_string t =
