@@ -123,18 +123,24 @@ let test_calculate_backoff_jitter_range () =
 ;;
 
 let test_budget_create_defaults () =
+  Eio_main.run
+  @@ fun _env ->
   let budget = Retry.Budget.create () in
   assert (Retry.Budget.remaining budget = 100);
   Printf.printf "  OK Budget.create defaults\n%!"
 ;;
 
 let test_budget_create_custom () =
+  Eio_main.run
+  @@ fun _env ->
   let budget = Retry.Budget.create ~refill_interval:5.0 ~max_budget:50 () in
   assert (Retry.Budget.remaining budget = 50);
   Printf.printf "  OK Budget.create custom\n%!"
 ;;
 
 let test_budget_try_acquire () =
+  Eio_main.run
+  @@ fun _env ->
   let budget = Retry.Budget.create ~max_budget:3 () in
   assert (Retry.Budget.remaining budget = 3);
   assert (Retry.Budget.try_acquire budget);

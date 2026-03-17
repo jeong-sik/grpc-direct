@@ -141,22 +141,23 @@ let get_pool (balancer : t) (target : string) : Pool.t option =
   | None -> None
   | Some opts ->
     let pool =
-      match Hashtbl.find_opt balancer.pools target with
-      | Some existing -> existing
-      | None ->
-        let created =
-          Pool.create
-            ~min_connections:opts.min_connections
-            ~max_connections:opts.max_connections
-            ~idle_timeout:opts.idle_timeout
-            ~health_check_interval:opts.health_check_interval
-            ~connection_timeout:opts.connection_timeout
-            ?client_config:opts.client_config
-            ~target
-            ()
-        in
-        Hashtbl.add balancer.pools target created;
-        created
+      Eio.Mutex.use_rw ~protect:true balancer.mutex (fun () ->
+        match Hashtbl.find_opt balancer.pools target with
+        | Some existing -> existing
+        | None ->
+          let created =
+            Pool.create
+              ~min_connections:opts.min_connections
+              ~max_connections:opts.max_connections
+              ~idle_timeout:opts.idle_timeout
+              ~health_check_interval:opts.health_check_interval
+              ~connection_timeout:opts.connection_timeout
+              ?client_config:opts.client_config
+              ~target
+              ()
+          in
+          Hashtbl.add balancer.pools target created;
+          created)
     in
     Some pool
 ;;
@@ -308,15 +309,17 @@ let call_with_retry ~sw ~env ?(max_retries = 2) (balancer : t) (f : Client.t -> 
 
 (** Get list of all backends with their states *)
 let backends (balancer : t) : (string * backend_state) list =
-  Array.to_list balancer.backends |> List.map (fun b -> b.target, b.state)
+  Eio.Mutex.use_ro balancer.mutex (fun () ->
+    Array.to_list balancer.backends |> List.map (fun b -> b.target, b.state))
 ;;
 
 (** Get count of healthy backends *)
 let healthy_count (balancer : t) : int =
-  Array.fold_left
-    (fun acc b -> if is_available b then acc + 1 else acc)
-    0
-    balancer.backends
+  Eio.Mutex.use_ro balancer.mutex (fun () ->
+    Array.fold_left
+      (fun acc b -> if is_available b then acc + 1 else acc)
+      0
+      balancer.backends)
 ;;
 
 (** Get total backend count *)
@@ -354,29 +357,36 @@ let _add_backend (balancer : t) ?(weight = 1) (target : string) : unit =
 
 (** Format balancer state as string for logging *)
 let to_string (balancer : t) : string =
-  let strategy_str =
-    match balancer.config.strategy with
-    | PickFirst -> "PickFirst"
-    | RoundRobin -> "RoundRobin"
-    | WeightedRoundRobin _ -> "WeightedRoundRobin"
-    | Random -> "Random"
-  in
-  let backends_str =
-    Array.to_list balancer.backends
-    |> List.map (fun b ->
-      let state_str =
-        match b.state with
-        | Healthy -> "H"
-        | Unhealthy -> "U"
-        | Unknown -> "?"
-      in
-      Printf.sprintf "%s[%s]" b.target state_str)
-    |> String.concat ", "
-  in
-  Printf.sprintf
-    "Balancer[%s, %d/%d healthy]: %s"
-    strategy_str
-    (healthy_count balancer)
-    (total_count balancer)
-    backends_str
+  Eio.Mutex.use_ro balancer.mutex (fun () ->
+    let strategy_str =
+      match balancer.config.strategy with
+      | PickFirst -> "PickFirst"
+      | RoundRobin -> "RoundRobin"
+      | WeightedRoundRobin _ -> "WeightedRoundRobin"
+      | Random -> "Random"
+    in
+    let backends_str =
+      Array.to_list balancer.backends
+      |> List.map (fun b ->
+        let state_str =
+          match b.state with
+          | Healthy -> "H"
+          | Unhealthy -> "U"
+          | Unknown -> "?"
+        in
+        Printf.sprintf "%s[%s]" b.target state_str)
+      |> String.concat ", "
+    in
+    let n_healthy =
+      Array.fold_left
+        (fun acc b -> if is_available b then acc + 1 else acc)
+        0
+        balancer.backends
+    in
+    Printf.sprintf
+      "Balancer[%s, %d/%d healthy]: %s"
+      strategy_str
+      n_healthy
+      (Array.length balancer.backends)
+      backends_str)
 ;;

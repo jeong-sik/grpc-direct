@@ -21,7 +21,16 @@ type settings =
   ; max_header_list_size : int
   }
 
-(** Connection state *)
+(** Connection state.
+
+    {b Thread Safety:}
+    - [read_buf], [read_pos], [consumed]: Owned exclusively by the read loop fiber.
+      No synchronization needed.
+    - [write_buf]: Owned exclusively by the write path (write_frame_direct).
+      No synchronization needed when single writer.
+    - [closed], [goaway_received], [peer_settings], [next_stream_id], [last_stream_id]:
+      Accessed by both read and write fibers. Protected by [mutex].
+    - [local_settings]: Set at creation, read-only afterward. *)
 type t =
   { flow : Eio.Flow.two_way_ty r
   ; mutable read_buf : Cstruct.t
@@ -36,6 +45,7 @@ type t =
   ; mutable last_stream_id : int32
   ; scheduler : Priority_scheduler.t option
   ; scheduler_signal : unit Eio.Stream.t option
+  ; mutex : Eio.Mutex.t
   }
 
 (** Connection-level protocol error *)
@@ -88,39 +98,47 @@ let parse_settings_payload payload =
   loop [] 0
 ;;
 
-(** Apply peer SETTINGS to connection state *)
+(** Apply peer SETTINGS to connection state.
+
+    Protected by [mutex] since peer_settings is read by write-path
+    (e.g., [peer_max_frame_size]) and written by read-path. *)
 let apply_peer_settings t settings =
-  List.iter
-    (fun (id, value) ->
-       match id with
-       | id when id = Frame.Settings_id.header_table_size ->
-         let size = Int32.to_int value in
-         t.peer_settings <- { t.peer_settings with header_table_size = size }
-       | id when id = Frame.Settings_id.enable_push ->
-         if value <> 0l && value <> 1l then failwith "Invalid SETTINGS_ENABLE_PUSH value";
-         t.peer_settings <- { t.peer_settings with enable_push = value = 1l }
-       | id when id = Frame.Settings_id.max_concurrent_streams ->
-         let max_streams = Int32.to_int value in
-         t.peer_settings <- { t.peer_settings with max_concurrent_streams = max_streams }
-       | id when id = Frame.Settings_id.initial_window_size ->
-         if Int32.compare value 0x7FFFFFFFl > 0
-         then failwith "FLOW_CONTROL_ERROR: initial_window_size too large";
-         let size = Int32.to_int value in
-         t.peer_settings <- { t.peer_settings with initial_window_size = size }
-       | id when id = Frame.Settings_id.max_frame_size ->
-         let size = Int32.to_int value in
-         if size < min_frame_size || size > max_frame_size
-         then failwith "Invalid SETTINGS_MAX_FRAME_SIZE value";
-         t.peer_settings <- { t.peer_settings with max_frame_size = size }
-       | id when id = Frame.Settings_id.max_header_list_size ->
-         let size = Int32.to_int value in
-         t.peer_settings <- { t.peer_settings with max_header_list_size = size }
-       | _ -> () (* Ignore unknown settings per RFC 7540 *))
-    settings
+  Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
+    List.iter
+      (fun (id, value) ->
+         match id with
+         | id when id = Frame.Settings_id.header_table_size ->
+           let size = Int32.to_int value in
+           t.peer_settings <- { t.peer_settings with header_table_size = size }
+         | id when id = Frame.Settings_id.enable_push ->
+           if value <> 0l && value <> 1l
+           then failwith "Invalid SETTINGS_ENABLE_PUSH value";
+           t.peer_settings <- { t.peer_settings with enable_push = value = 1l }
+         | id when id = Frame.Settings_id.max_concurrent_streams ->
+           let max_streams = Int32.to_int value in
+           t.peer_settings
+           <- { t.peer_settings with max_concurrent_streams = max_streams }
+         | id when id = Frame.Settings_id.initial_window_size ->
+           if Int32.compare value 0x7FFFFFFFl > 0
+           then failwith "FLOW_CONTROL_ERROR: initial_window_size too large";
+           let size = Int32.to_int value in
+           t.peer_settings <- { t.peer_settings with initial_window_size = size }
+         | id when id = Frame.Settings_id.max_frame_size ->
+           let size = Int32.to_int value in
+           if size < min_frame_size || size > max_frame_size
+           then failwith "Invalid SETTINGS_MAX_FRAME_SIZE value";
+           t.peer_settings <- { t.peer_settings with max_frame_size = size }
+         | id when id = Frame.Settings_id.max_header_list_size ->
+           let size = Int32.to_int value in
+           t.peer_settings <- { t.peer_settings with max_header_list_size = size }
+         | _ -> () (* Ignore unknown settings per RFC 7540 *))
+      settings)
 ;;
 
 (** Peer max frame size (for header fragmentation) *)
-let peer_max_frame_size t = t.peer_settings.max_frame_size
+let peer_max_frame_size t =
+  Eio.Mutex.use_ro t.mutex (fun () -> t.peer_settings.max_frame_size)
+;;
 
 (** Buffer sizes tuned for benchmark stability *)
 let read_buffer_size = 64 * 1024 (* 64 KB *)
@@ -155,6 +173,7 @@ let create
   ; last_stream_id = 0l
   ; scheduler
   ; scheduler_signal
+  ; mutex = Eio.Mutex.create ()
   }
 ;;
 
@@ -182,7 +201,7 @@ let recv_preface t =
     let n = Eio.Flow.single_read t.flow available in
     if n = 0
     then (
-      t.closed <- true;
+      Eio.Mutex.use_rw ~protect:true t.mutex (fun () -> t.closed <- true);
       raise End_of_file);
     t.read_pos <- t.read_pos + n
   done;
@@ -201,7 +220,7 @@ let recv_preface t =
 
 (** Fill read buffer from network *)
 let fill_read_buffer t =
-  if t.closed then raise End_of_file;
+  if Eio.Mutex.use_ro t.mutex (fun () -> t.closed) then raise End_of_file;
   (* Compact buffer if needed *)
   if t.read_pos > 0 && Cstruct.length t.read_buf - t.read_pos < Frame.header_size
   then (
@@ -214,7 +233,7 @@ let fill_read_buffer t =
   let n = Eio.Flow.single_read t.flow available in
   if n = 0
   then (
-    t.closed <- true;
+    Eio.Mutex.use_rw ~protect:true t.mutex (fun () -> t.closed <- true);
     raise End_of_file);
   t.read_pos <- t.read_pos + n
 ;;
@@ -380,7 +399,7 @@ let read_header_block ?first_frame t : header_block =
 
 (** Write frame to connection (zero-copy vectored write) *)
 let write_frame_direct t (frame : Frame.t) =
-  if t.closed then failwith "Connection closed";
+  if Eio.Mutex.use_ro t.mutex (fun () -> t.closed) then failwith "Connection closed";
   (* Build header in write buffer *)
   Frame.write_header t.write_buf frame.header;
   let header_cs = Cstruct.sub t.write_buf 0 Frame.header_size in
@@ -395,7 +414,7 @@ let write_frame_direct t (frame : Frame.t) =
     than multiple small Cstruct allocations and vectored I/O.
 *)
 let write_frames_direct t (frames : Frame.t list) =
-  if t.closed then failwith "Connection closed";
+  if Eio.Mutex.use_ro t.mutex (fun () -> t.closed) then failwith "Connection closed";
   (* Calculate total size *)
   let total_size =
     List.fold_left
@@ -517,7 +536,7 @@ let write_frames t (frames : Frame.t list) =
     - TRAILERS: 9 + 15 = 24 bytes (pre-encoded grpc-status=0)
 *)
 let write_echo_response t ~stream_id (message : Cstruct.t) =
-  if t.closed then failwith "Connection closed";
+  if Eio.Mutex.use_ro t.mutex (fun () -> t.closed) then failwith "Connection closed";
   let msg_len = Cstruct.length message in
   let grpc_payload_len = 5 + msg_len in
   (* gRPC header + message *)
@@ -599,7 +618,7 @@ let write_echo_response_with_window_update
       (message : Cstruct.t)
       ~window_increment
   =
-  if t.closed then failwith "Connection closed";
+  if Eio.Mutex.use_ro t.mutex (fun () -> t.closed) then failwith "Connection closed";
   let msg_len = Cstruct.length message in
   let grpc_payload_len = 5 + msg_len in
   (* gRPC header + message *)
@@ -715,30 +734,32 @@ let send_window_update t ~stream_id ~increment =
 let send_goaway t ~last_stream_id ~error_code ~debug_data =
   let frame = Frame.make_goaway ~last_stream_id ~error_code ~debug_data in
   write_frame t frame;
-  t.goaway_received <- true
+  Eio.Mutex.use_rw ~protect:true t.mutex (fun () -> t.goaway_received <- true)
 ;;
 
 (** Allocate next stream ID (client: odd, server: even) *)
 let next_stream_id t ~is_client =
-  let id = t.next_stream_id in
-  t.next_stream_id <- Int32.add t.next_stream_id 2l;
-  (* Ensure odd/even based on role *)
-  if is_client && Int32.rem id 2l = 0l
-  then Int32.add id 1l
-  else if (not is_client) && Int32.rem id 2l = 1l
-  then Int32.add id 1l
-  else id
+  Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
+    let id = t.next_stream_id in
+    t.next_stream_id <- Int32.add t.next_stream_id 2l;
+    (* Ensure odd/even based on role *)
+    if is_client && Int32.rem id 2l = 0l
+    then Int32.add id 1l
+    else if (not is_client) && Int32.rem id 2l = 1l
+    then Int32.add id 1l
+    else id)
 ;;
 
 (** Close connection *)
 let close t =
-  if not t.closed
-  then (
-    t.closed <- true;
-    (* Release pooled buffers *)
-    Buffer_pool.Cstruct_pool.release t.read_buf;
-    Buffer_pool.Cstruct_pool.release t.write_buf
-    (* Flow is managed by Switch, no explicit close needed *))
+  Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
+    if not t.closed
+    then (
+      t.closed <- true;
+      (* Release pooled buffers *)
+      Buffer_pool.Cstruct_pool.release t.read_buf;
+      Buffer_pool.Cstruct_pool.release t.write_buf
+      (* Flow is managed by Switch, no explicit close needed *)))
 ;;
 
 (** Client handshake: send preface + settings, receive server settings *)
