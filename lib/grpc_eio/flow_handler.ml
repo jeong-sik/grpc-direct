@@ -61,7 +61,7 @@ let start_server_loop
       (flow : _ Eio.Flow.two_way)
   =
   let read_closed_p, read_closed_u = Promise.create () in
-  let write_closed = ref false in
+  let write_closed = Atomic.make false in
   let read_buffer = Buffer.create read_buffer_size in
   let rec read_loop () =
     let read flow buffer =
@@ -102,7 +102,7 @@ let start_server_loop
             | exception (End_of_file as exn) ->
               IO.shutdown flow `Receive;
               Promise.resolve read_closed_u ();
-              (match !write_closed with
+              (match Atomic.get write_closed with
                | true -> ()
                | false -> H2.Server_connection.report_exn connection exn)))
     in
@@ -126,7 +126,7 @@ let start_server_loop
       Promise.await p;
       write_loop ()
     | `Close _ ->
-      write_closed := true;
+      Atomic.set write_closed true;
       IO.shutdown flow `Send
   in
   Fiber.both read_loop write_loop
@@ -166,7 +166,7 @@ let start_client_loop
       (flow : _ Eio.Flow.two_way)
   =
   let read_closed_p, read_closed_u = Promise.create () in
-  let write_closed = ref false in
+  let write_closed = Atomic.make false in
   let read_buffer = Buffer.create read_buffer_size in
   let rec read_loop () =
     let read flow buffer =
@@ -207,7 +207,7 @@ let start_client_loop
             | exception (End_of_file as exn) ->
               IO.shutdown flow `Receive;
               Promise.resolve read_closed_u ();
-              (match !write_closed with
+              (match Atomic.get write_closed with
                | true -> ()
                | false -> H2.Client_connection.report_exn connection exn)))
     in
@@ -231,7 +231,7 @@ let start_client_loop
       Promise.await p;
       write_loop ()
     | `Close _ ->
-      write_closed := true;
+      Atomic.set write_closed true;
       IO.shutdown flow `Send
   in
   Fiber.both read_loop write_loop
