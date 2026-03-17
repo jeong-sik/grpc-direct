@@ -20,6 +20,11 @@ jobs:
           opam-depext: true
       - name: Install dune
         run: opam install -y dune
+      - name: Pin external dependencies
+        run: |
+          opam pin add mcp_protocol https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_eio https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_http https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
       - name: Install OCaml deps
         run: |
           for i in 1 2 3; do
@@ -46,6 +51,11 @@ jobs:
           opam-depext: true
       - name: Install dune
         run: opam install -y dune
+      - name: Pin external dependencies
+        run: |
+          opam pin add mcp_protocol https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_eio https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_http https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
       - name: Install OCaml deps
         run: |
           for i in 1 2 3; do
