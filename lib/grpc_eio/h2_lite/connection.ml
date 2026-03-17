@@ -111,11 +111,13 @@ let apply_peer_settings t settings =
            let size = Int32.to_int value in
            t.peer_settings <- { t.peer_settings with header_table_size = size }
          | id when id = Frame.Settings_id.enable_push ->
-           if value <> 0l && value <> 1l then failwith "Invalid SETTINGS_ENABLE_PUSH value";
+           if value <> 0l && value <> 1l
+           then failwith "Invalid SETTINGS_ENABLE_PUSH value";
            t.peer_settings <- { t.peer_settings with enable_push = value = 1l }
          | id when id = Frame.Settings_id.max_concurrent_streams ->
            let max_streams = Int32.to_int value in
-           t.peer_settings <- { t.peer_settings with max_concurrent_streams = max_streams }
+           t.peer_settings
+           <- { t.peer_settings with max_concurrent_streams = max_streams }
          | id when id = Frame.Settings_id.initial_window_size ->
            if Int32.compare value 0x7FFFFFFFl > 0
            then failwith "FLOW_CONTROL_ERROR: initial_window_size too large";
@@ -136,6 +138,7 @@ let apply_peer_settings t settings =
 (** Peer max frame size (for header fragmentation) *)
 let peer_max_frame_size t =
   Eio.Mutex.use_ro t.mutex (fun () -> t.peer_settings.max_frame_size)
+;;
 
 (** Buffer sizes tuned for benchmark stability *)
 let read_buffer_size = 64 * 1024 (* 64 KB *)
