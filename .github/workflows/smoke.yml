@@ -20,6 +20,11 @@ jobs:
           opam-depext: true
       - name: Install dune
         run: opam install -y dune
+      - name: Pin external dependencies
+        run: |
+          opam pin add mcp_protocol https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_eio https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_http https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
       - name: Install OCaml deps
         run: |
           for i in 1 2 3; do
@@ -30,9 +35,9 @@ jobs:
           exit 1
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - name: Install h2spec
-        run: go install github.com/summerwind/h2spec/cmd/h2spec@latest
+        run: go install github.com/summerwind/h2spec/cmd/h2spec@v2.2.1
       - name: Run h2spec smoke
         run: opam exec -- env H2SPEC="$HOME/go/bin/h2spec" ./ops/compliance/run_h2spec.sh
 
@@ -46,6 +51,11 @@ jobs:
           opam-depext: true
       - name: Install dune
         run: opam install -y dune
+      - name: Pin external dependencies
+        run: |
+          opam pin add mcp_protocol https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_eio https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
+          opam pin add mcp_protocol_http https://github.com/jeong-sik/mcp-protocol-sdk.git#main -n -y
       - name: Install OCaml deps
         run: |
           for i in 1 2 3; do
@@ -56,6 +66,6 @@ jobs:
           exit 1
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - name: Run interop smoke
         run: opam exec -- ./ops/ci/run_interop_smoke.sh

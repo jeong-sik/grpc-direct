@@ -4,7 +4,7 @@
     - Single-domain safe: Yes
     - Multi-domain safe: Partial
       - Services Hashtbl: Safe if registered at startup only (before [serve])
-      - [mutable running]: Simple flag, atomic read/write on most platforms
+      - [running]: Uses [Atomic.t] for safe concurrent read/write
       - Request body [ref]: Per-request, no sharing between fibers
 
     @see {{: https://github.com/ocaml-multicore/eio/blob/main/doc/multicore.md } Eio Multicore Guide}
@@ -44,7 +44,7 @@ type t =
   ; services : (string, Service.t) Hashtbl.t
   ; interceptors : string Interceptor.t list
   ; metrics : Metrics.t option
-  ; mutable running : bool
+  ; running : bool Atomic.t
   }
 
 let supported_encodings (server : t) : string =
@@ -56,7 +56,7 @@ let create ?(config = default_config) () : t =
   ; services = Hashtbl.create 16
   ; interceptors = []
   ; metrics = None
-  ; running = false
+  ; running = Atomic.make false
   }
 ;;
 
@@ -499,7 +499,7 @@ let serve ~sw ~env (server : t) : unit =
       None
   in
   Log.info "gRPC server on %s:%d" server.config.host server.config.port;
-  server.running <- true;
+  Atomic.set server.running true;
   let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true addr in
   let h2_handler =
     H2_eio.Server.create_connection_handler
@@ -526,7 +526,7 @@ let serve ~sw ~env (server : t) : unit =
         tls_flow
     | None -> h2_handler ~sw addr sock
   in
-  while server.running do
+  while Atomic.get server.running do
     Eio.Net.accept_fork
       socket
       ~sw
@@ -537,7 +537,7 @@ let serve ~sw ~env (server : t) : unit =
 
 let shutdown (server : t) : unit =
   Log.info "Shutting down gRPC server...";
-  server.running <- false
+  Atomic.set server.running false
 ;;
 
 (* Accessors for Server_multi *)
@@ -545,5 +545,5 @@ let config (server : t) = server.config
 let services (server : t) = server.services
 let interceptors (server : t) = server.interceptors
 let metrics (server : t) = server.metrics
-let running (server : t) = server.running
-let set_running (server : t) v = server.running <- v
+let running (server : t) = Atomic.get server.running
+let set_running (server : t) v = Atomic.set server.running v

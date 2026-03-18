@@ -269,7 +269,7 @@ let available (pool : t) : int =
 ;;
 
 (** Check if pool is closed *)
-let is_closed (pool : t) : bool = pool.closed
+let is_closed (pool : t) : bool = Eio.Mutex.use_ro pool.mutex (fun () -> pool.closed)
 
 (** Pre-warm the pool by creating min_connections.
 

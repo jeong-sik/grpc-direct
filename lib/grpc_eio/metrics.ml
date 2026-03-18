@@ -8,8 +8,11 @@
 
     {b Thread Safety:}
     - Single-domain safe: Yes (cooperative scheduling)
-    - Multi-domain safe: {b No} - uses mutable fields without synchronization
-    - For multi-domain: Migrate Counter/Gauge to [Atomic.t]
+    - Multi-domain safe: Yes
+      - Counter: uses [Atomic.t] for independent increments
+      - Gauge: uses [Eio.Mutex] for float read-modify-write
+      - Histogram: uses [Eio.Mutex] for multi-field atomic updates
+      - Registry total_calls/total_errors: uses [Atomic.t]
 
     @see {{: https://github.com/ocaml-multicore/eio/blob/main/doc/multicore.md } Eio Multicore Guide}
 
@@ -23,29 +26,49 @@
       Metrics.to_prometheus metrics |> print_endline
     ]} *)
 
-(** Counter for simple incrementing values *)
+(** Counter for simple incrementing values.
+
+    Uses [Atomic.t] for multi-domain safety on independent increments. *)
 module Counter = struct
-  type t = { mutable value : int }
+  type t = { value : int Atomic.t }
 
-  let create () : t = { value = 0 }
-  let inc (c : t) : unit = c.value <- c.value + 1
-  let inc_by (c : t) (n : int) : unit = c.value <- c.value + n
-  let get (c : t) : int = c.value
-  let reset (c : t) : unit = c.value <- 0
+  let create () : t = { value = Atomic.make 0 }
+  let inc (c : t) : unit = Atomic.set c.value (Atomic.get c.value + 1)
+  let inc_by (c : t) (n : int) : unit = Atomic.set c.value (Atomic.get c.value + n)
+  let get (c : t) : int = Atomic.get c.value
+  let reset (c : t) : unit = Atomic.set c.value 0
 end
 
-(** Gauge for values that can go up and down *)
+(** Gauge for values that can go up and down.
+
+    Uses [Eio.Mutex] because float inc/dec is read-modify-write. *)
 module Gauge = struct
-  type t = { mutable value : float }
+  type t =
+    { mutable value : float
+    ; mutex : Eio.Mutex.t
+    }
 
-  let create () : t = { value = 0.0 }
-  let set (g : t) (v : float) : unit = g.value <- v
-  let inc (g : t) : unit = g.value <- g.value +. 1.0
-  let dec (g : t) : unit = g.value <- g.value -. 1.0
-  let get (g : t) : float = g.value
+  let create () : t = { value = 0.0; mutex = Eio.Mutex.create () }
+
+  let set (g : t) (v : float) : unit =
+    Eio.Mutex.use_rw ~protect:true g.mutex (fun () -> g.value <- v)
+  ;;
+
+  let inc (g : t) : unit =
+    Eio.Mutex.use_rw ~protect:true g.mutex (fun () -> g.value <- g.value +. 1.0)
+  ;;
+
+  let dec (g : t) : unit =
+    Eio.Mutex.use_rw ~protect:true g.mutex (fun () -> g.value <- g.value -. 1.0)
+  ;;
+
+  let get (g : t) : float = Eio.Mutex.use_ro g.mutex (fun () -> g.value)
 end
 
-(** Histogram for latency distribution *)
+(** Histogram for latency distribution.
+
+    Uses [Eio.Mutex] because [observe] updates sum, count, and bucket
+    array elements together (must be atomic as a group). *)
 module Histogram = struct
   (* Default buckets in seconds: 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s *)
   let default_buckets =
@@ -57,6 +80,7 @@ module Histogram = struct
     ; counts : int array (* count per bucket *)
     ; mutable sum : float
     ; mutable count : int
+    ; mutex : Eio.Mutex.t
     }
 
   let create ?(buckets = default_buckets) () : t =
@@ -65,39 +89,43 @@ module Histogram = struct
     ; (* +1 for +Inf *)
       sum = 0.0
     ; count = 0
+    ; mutex = Eio.Mutex.create ()
     }
   ;;
 
   let observe (h : t) (value : float) : unit =
-    h.sum <- h.sum +. value;
-    h.count <- h.count + 1;
-    (* Increment appropriate bucket *)
-    let rec find_bucket i =
-      if i >= Array.length h.buckets
-      then Array.length h.buckets (* +Inf bucket *)
-      else if value <= h.buckets.(i)
-      then i
-      else find_bucket (i + 1)
-    in
-    let bucket_idx = find_bucket 0 in
-    (* Increment this and all higher buckets (cumulative) *)
-    for i = bucket_idx to Array.length h.counts - 1 do
-      h.counts.(i) <- h.counts.(i) + 1
-    done
+    Eio.Mutex.use_rw ~protect:true h.mutex (fun () ->
+      h.sum <- h.sum +. value;
+      h.count <- h.count + 1;
+      (* Increment appropriate bucket *)
+      let rec find_bucket i =
+        if i >= Array.length h.buckets
+        then Array.length h.buckets (* +Inf bucket *)
+        else if value <= h.buckets.(i)
+        then i
+        else find_bucket (i + 1)
+      in
+      let bucket_idx = find_bucket 0 in
+      (* Increment this and all higher buckets (cumulative) *)
+      for i = bucket_idx to Array.length h.counts - 1 do
+        h.counts.(i) <- h.counts.(i) + 1
+      done)
   ;;
 
-  let get_count (h : t) : int = h.count
-  let get_sum (h : t) : float = h.sum
+  let get_count (h : t) : int = Eio.Mutex.use_ro h.mutex (fun () -> h.count)
+  let get_sum (h : t) : float = Eio.Mutex.use_ro h.mutex (fun () -> h.sum)
 
   let get_buckets (h : t) : (float * int) list =
-    List.mapi (fun i bound -> bound, h.counts.(i)) (Array.to_list h.buckets)
-    @ [ Float.infinity, h.counts.(Array.length h.counts - 1) ]
+    Eio.Mutex.use_ro h.mutex (fun () ->
+      List.mapi (fun i bound -> bound, h.counts.(i)) (Array.to_list h.buckets)
+      @ [ Float.infinity, h.counts.(Array.length h.counts - 1) ])
   ;;
 
   let reset (h : t) : unit =
-    h.sum <- 0.0;
-    h.count <- 0;
-    Array.fill h.counts 0 (Array.length h.counts) 0
+    Eio.Mutex.use_rw ~protect:true h.mutex (fun () ->
+      h.sum <- 0.0;
+      h.count <- 0;
+      Array.fill h.counts 0 (Array.length h.counts) 0)
   ;;
 end
 
@@ -123,19 +151,21 @@ let create_method_metrics () : method_metrics =
   }
 ;;
 
-(** Metrics registry *)
+(** Metrics registry.
+
+    Uses [Atomic.t] for total_calls/total_errors (independent counters). *)
 type t =
   { methods : (string, method_metrics) Hashtbl.t
-  ; mutable total_calls : int
-  ; mutable total_errors : int
+  ; total_calls : int Atomic.t
+  ; total_errors : int Atomic.t
   ; start_time : float
   }
 
 (** Create a new metrics registry *)
 let create () : t =
   { methods = Hashtbl.create 32
-  ; total_calls = 0
-  ; total_errors = 0
+  ; total_calls = Atomic.make 0
+  ; total_errors = Atomic.make 0
   ; start_time = Time_compat.now ()
   }
 ;;
@@ -153,7 +183,7 @@ let get_method (m : t) ~(method_ : string) : method_metrics =
 (** Record a call start *)
 let record_call_start (m : t) ~(method_ : string) : unit =
   let mm = get_method m ~method_ in
-  m.total_calls <- m.total_calls + 1;
+  Atomic.incr m.total_calls;
   Counter.inc mm.calls_total;
   Gauge.inc mm.active_calls
 ;;
@@ -174,7 +204,7 @@ let record_call_end
   Histogram.observe mm.latency latency_sec;
   if not success
   then (
-    m.total_errors <- m.total_errors + 1;
+    Atomic.incr m.total_errors;
     Counter.inc mm.calls_failed);
   (match request_size with
    | Some s -> Histogram.observe mm.request_bytes (float_of_int s)
@@ -211,16 +241,17 @@ let client_interceptor (m : t) : string Interceptor.t =
 let uptime (m : t) : float = Time_compat.now () -. m.start_time
 
 (** Get total call count *)
-let total_calls (m : t) : int = m.total_calls
+let total_calls (m : t) : int = Atomic.get m.total_calls
 
 (** Get total error count *)
-let total_errors (m : t) : int = m.total_errors
+let total_errors (m : t) : int = Atomic.get m.total_errors
 
 (** Get error rate (0.0 to 1.0) *)
 let error_rate (m : t) : float =
-  if m.total_calls = 0
+  let calls = Atomic.get m.total_calls in
+  if calls = 0
   then 0.0
-  else float_of_int m.total_errors /. float_of_int m.total_calls
+  else float_of_int (Atomic.get m.total_errors) /. float_of_int calls
 ;;
 
 (** Export metrics in Prometheus text format *)
@@ -245,7 +276,7 @@ let to_prometheus (m : t) : string =
   (* Total calls *)
   add "# HELP grpc_server_calls_total Total number of gRPC calls\n";
   add "# TYPE grpc_server_calls_total counter\n";
-  add (Printf.sprintf "grpc_server_calls_total %d\n" m.total_calls);
+  add (Printf.sprintf "grpc_server_calls_total %d\n" (Atomic.get m.total_calls));
   Hashtbl.iter
     (fun method_ mm ->
        add
@@ -258,7 +289,7 @@ let to_prometheus (m : t) : string =
   (* Total errors *)
   add "# HELP grpc_server_calls_failed_total Total number of failed gRPC calls\n";
   add "# TYPE grpc_server_calls_failed_total counter\n";
-  add (Printf.sprintf "grpc_server_calls_failed_total %d\n" m.total_errors);
+  add (Printf.sprintf "grpc_server_calls_failed_total %d\n" (Atomic.get m.total_errors));
   Hashtbl.iter
     (fun method_ mm ->
        add
@@ -368,9 +399,12 @@ let serve_prometheus
 (** Print metrics summary to a log function *)
 let log_summary ?(log = print_endline) (m : t) : unit =
   log (Printf.sprintf "gRPC Metrics Summary (uptime: %.1fs)" (uptime m));
-  log (Printf.sprintf "  Total calls: %d" m.total_calls);
+  log (Printf.sprintf "  Total calls: %d" (Atomic.get m.total_calls));
   log
-    (Printf.sprintf "  Total errors: %d (%.2f%%)" m.total_errors (error_rate m *. 100.0));
+    (Printf.sprintf
+       "  Total errors: %d (%.2f%%)"
+       (Atomic.get m.total_errors)
+       (error_rate m *. 100.0));
   Hashtbl.iter
     (fun method_ mm ->
        let avg_latency =

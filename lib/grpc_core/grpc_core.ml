@@ -12,3 +12,4 @@ module Codec = Codec
 module Status = Status
 module Message = Message
 module Timeout = Timeout
+module Version = Version

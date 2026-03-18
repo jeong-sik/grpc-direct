@@ -3,7 +3,7 @@
  (modules chat_server time_compat)
  (package grpc-direct)
  (public_name ai-chat-server)
- (libraries grpc-direct eio eio_main unix))
+ (libraries grpc-direct eio eio_main unix mcp_protocol_eio))
 
 (executable
  (name chat_client)

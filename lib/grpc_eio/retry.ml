@@ -5,8 +5,8 @@
 
     {b Thread Safety:}
     - Single-domain safe: Yes (cooperative scheduling)
-    - Multi-domain safe: {b No} - TokenBucket uses mutable fields without synchronization
-    - For multi-domain: Use [Atomic.t] for token bucket remaining/last_refill
+    - Multi-domain safe: Yes - Budget.try_acquire uses [Eio.Mutex] for atomic
+      check-and-update of remaining/last_refill
 
     @see {{: https://github.com/ocaml-multicore/eio/blob/main/doc/multicore.md } Eio Multicore Guide}
 
@@ -167,13 +167,17 @@ let conservative : policy =
 
 (** Retry budget tracker to prevent retry storms.
 
-    Limits the total number of retries across all calls within a time window. *)
+    Limits the total number of retries across all calls within a time window.
+
+    Uses [Eio.Mutex] because [try_acquire] must atomically check and update
+    both [remaining] and [last_refill] together. *)
 module Budget = struct
   type t =
     { mutable remaining : int
     ; mutable last_refill : float
     ; refill_interval : float (* seconds *)
     ; max_budget : int
+    ; mutex : Eio.Mutex.t
     }
 
   let create ?(refill_interval = 10.0) ?(max_budget = 100) () : t =
@@ -181,24 +185,28 @@ module Budget = struct
     ; last_refill = Time_compat.now ()
     ; refill_interval
     ; max_budget
+    ; mutex = Eio.Mutex.create ()
     }
   ;;
 
   let try_acquire (budget : t) : bool =
-    let now = Time_compat.now () in
-    (* Refill if interval has passed *)
-    if now -. budget.last_refill >= budget.refill_interval
-    then (
-      budget.remaining <- budget.max_budget;
-      budget.last_refill <- now);
-    if budget.remaining > 0
-    then (
-      budget.remaining <- budget.remaining - 1;
-      true)
-    else false
+    Eio.Mutex.use_rw ~protect:true budget.mutex (fun () ->
+      let now = Time_compat.now () in
+      (* Refill if interval has passed *)
+      if now -. budget.last_refill >= budget.refill_interval
+      then (
+        budget.remaining <- budget.max_budget;
+        budget.last_refill <- now);
+      if budget.remaining > 0
+      then (
+        budget.remaining <- budget.remaining - 1;
+        true)
+      else false)
   ;;
 
-  let remaining (budget : t) : int = budget.remaining
+  let remaining (budget : t) : int =
+    Eio.Mutex.use_ro budget.mutex (fun () -> budget.remaining)
+  ;;
 end
 
 (** Retry with budget tracking *)

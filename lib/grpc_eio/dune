@@ -15,6 +15,7 @@
   ca-certs
   digestif
   mirage-crypto-rng-eio
-  mirage-crypto-rng.unix)
+  mirage-crypto-rng.unix
+  mcp_protocol_eio)
  (instrumentation
   (backend bisect_ppx)))
