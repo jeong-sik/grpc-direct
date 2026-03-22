@@ -1,6 +1,6 @@
 (lang dune 3.13)
 (name grpc-direct)
-(version 0.2.2)
+(version 0.2.4)
 
 (generate_opam_files true)
 
