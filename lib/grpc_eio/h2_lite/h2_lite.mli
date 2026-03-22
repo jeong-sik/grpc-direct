@@ -96,12 +96,7 @@ val send_push_promise : stream -> headers:(string * string) list -> stream
     connection-level frames (SETTINGS, PING, WINDOW_UPDATE, GOAWAY) that
     arrive on stream 0. Call this for frames that do not belong to a
     specific stream. *)
-val handle_connection_frame
-  :  Connection.t
-  -> Flow_control.t
-  -> Hpack.t
-  -> Frame.t
-  -> unit
+val handle_connection_frame : Connection.t -> Flow_control.t -> Hpack.t -> Frame.t -> unit
 
 (** [recv_frame ?on_push stream] reads the next frame addressed to [stream].
     Handles connection-level frames and other-stream frames internally by
@@ -158,12 +153,7 @@ module Client : sig
       Sends [request] as a length-prefixed gRPC message, waits for the
       response, and returns the decoded response body.
       @raise Failure on gRPC error status or missing grpc-status trailer. *)
-  val call_unary
-    :  t
-    -> service:string
-    -> method_:string
-    -> request:Cstruct.t
-    -> Cstruct.t
+  val call_unary : t -> service:string -> method_:string -> request:Cstruct.t -> Cstruct.t
 
   (** [close t] sends a GOAWAY frame and closes the connection. *)
   val close : t -> unit
