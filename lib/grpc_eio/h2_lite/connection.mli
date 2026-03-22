@@ -86,11 +86,7 @@ val grpc_settings : settings
 
     @param settings Connection settings (default: {!grpc_settings}).
     @param priority_scheduling Enable priority-based frame scheduling. *)
-val create :
-  ?settings:settings ->
-  ?priority_scheduling:bool ->
-  _ Eio.Flow.two_way ->
-  t
+val create : ?settings:settings -> ?priority_scheduling:bool -> _ Eio.Flow.two_way -> t
 
 (** {1 Handshake} *)
 
@@ -141,8 +137,12 @@ val write_echo_response : t -> stream_id:int32 -> Cstruct.t -> unit
 
 (** Like {!write_echo_response} but piggybacks a connection-level
     WINDOW_UPDATE frame when [window_increment > 0], saving one syscall. *)
-val write_echo_response_with_window_update :
-  t -> stream_id:int32 -> Cstruct.t -> window_increment:int -> unit
+val write_echo_response_with_window_update
+  :  t
+  -> stream_id:int32
+  -> Cstruct.t
+  -> window_increment:int
+  -> unit
 
 (** {1 Control Frames} *)
 
@@ -164,8 +164,12 @@ val send_window_update : t -> stream_id:int32 -> increment:int32 -> unit
     @param last_stream_id Highest stream ID the sender processed.
     @param error_code HTTP/2 error code.
     @param debug_data Optional debug payload. *)
-val send_goaway :
-  t -> last_stream_id:int32 -> error_code:int32 -> debug_data:string -> unit
+val send_goaway
+  :  t
+  -> last_stream_id:int32
+  -> error_code:int32
+  -> debug_data:string
+  -> unit
 
 (** {1 Settings Management} *)
 
