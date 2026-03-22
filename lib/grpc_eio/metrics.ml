@@ -33,8 +33,8 @@ module Counter = struct
   type t = { value : int Atomic.t }
 
   let create () : t = { value = Atomic.make 0 }
-  let inc (c : t) : unit = Atomic.set c.value (Atomic.get c.value + 1)
-  let inc_by (c : t) (n : int) : unit = Atomic.set c.value (Atomic.get c.value + n)
+  let inc (c : t) : unit = ignore (Atomic.fetch_and_add c.value 1)
+  let inc_by (c : t) (n : int) : unit = ignore (Atomic.fetch_and_add c.value n)
   let get (c : t) : int = Atomic.get c.value
   let reset (c : t) : unit = Atomic.set c.value 0
 end
@@ -226,6 +226,9 @@ let server_interceptor (m : t) : string Interceptor.t =
       record_call_end m ~method_ ~latency_sec:elapsed ~success:true ();
       result
     with
+    | Eio.Cancel.Cancelled _ as e ->
+      Gauge.dec (get_method m ~method_).active_calls;
+      raise e
     | exn ->
       let elapsed = Time_compat.now () -. start in
       record_call_end m ~method_ ~latency_sec:elapsed ~success:false ();
@@ -367,7 +370,9 @@ let serve_prometheus
     let line_opt =
       try Some (Eio.Buf_read.line reader) with
       | End_of_file -> None
-      | _ -> Some ""
+      | Eio.Cancel.Cancelled _ as e -> raise e
+      | Eio.Buf_read.Buffer_limit_exceeded -> Some ""
+      | Failure _ -> Some ""
     in
     match line_opt with
     | None -> ()
