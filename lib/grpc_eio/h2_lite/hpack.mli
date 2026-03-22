@@ -13,16 +13,16 @@
 type entry =
   { name : string
   ; value : string
-  ; size : int  (** RFC 7541: size = len(name) + len(value) + 32 *)
+  ; size : int (** RFC 7541: size = len(name) + len(value) + 32 *)
   }
 
 (** HPACK encoder/decoder context. Each HTTP/2 connection uses two contexts:
     one for encoding outgoing headers, one for decoding incoming headers. *)
 type t =
-  { mutable dynamic_table : entry list  (** Newest first *)
-  ; mutable table_size : int  (** Current size in bytes *)
-  ; mutable table_len : int  (** Cached length for O(1) access *)
-  ; mutable max_size : int  (** Max size, default 4096 *)
+  { mutable dynamic_table : entry list (** Newest first *)
+  ; mutable table_size : int (** Current size in bytes *)
+  ; mutable table_len : int (** Cached length for O(1) access *)
+  ; mutable max_size : int (** Max size, default 4096 *)
   }
 
 (** {1 Static table} *)
