@@ -32,58 +32,56 @@ val header_value : (string * string) list -> string -> string option
 (** Parse a complete HTTP/1.1 request from a buffered reader.
     Reads request line, headers, and body (content-length or chunked).
     @raise Failure on malformed input or size limit exceeded. *)
-val read_request :
-  Eio.Buf_read.t -> max_header_size:int -> max_body_size:int -> request
+val read_request : Eio.Buf_read.t -> max_header_size:int -> max_body_size:int -> request
 
 (** Parse a complete HTTP/1.1 response from a buffered reader.
     @raise Failure on malformed input or size limit exceeded. *)
-val read_response :
-  Eio.Buf_read.t -> max_header_size:int -> max_body_size:int -> response
+val read_response : Eio.Buf_read.t -> max_header_size:int -> max_body_size:int -> response
 
 (** Parse only the response status line and headers, leaving the body
     unread in the buffer.
     Returns [(version, status_code, reason, headers)]. *)
-val read_response_head :
-  Eio.Buf_read.t ->
-  max_header_size:int ->
-  string * int * string * (string * string) list
+val read_response_head
+  :  Eio.Buf_read.t
+  -> max_header_size:int
+  -> string * int * string * (string * string) list
 
 (** Read the response body in chunks, calling [on_chunk] for each piece.
     Handles both chunked transfer-encoding and content-length. *)
-val read_body_chunks :
-  Eio.Buf_read.t ->
-  max_body_size:int ->
-  (string * string) list ->
-  on_chunk:(string -> unit) ->
-  unit
+val read_body_chunks
+  :  Eio.Buf_read.t
+  -> max_body_size:int
+  -> (string * string) list
+  -> on_chunk:(string -> unit)
+  -> unit
 
 (** {1 Writing} *)
 
 (** Write a complete HTTP/1.1 request (request line + headers + body). *)
-val write_request :
-  _ Eio.Flow.sink ->
-  meth:string ->
-  target:string ->
-  headers:(string * string) list ->
-  body:string ->
-  unit
+val write_request
+  :  _ Eio.Flow.sink
+  -> meth:string
+  -> target:string
+  -> headers:(string * string) list
+  -> body:string
+  -> unit
 
 (** Write only the response status line and headers (no body). *)
-val write_response_headers :
-  _ Eio.Flow.sink ->
-  status:int ->
-  reason:string ->
-  headers:(string * string) list ->
-  unit
+val write_response_headers
+  :  _ Eio.Flow.sink
+  -> status:int
+  -> reason:string
+  -> headers:(string * string) list
+  -> unit
 
 (** Write a complete HTTP/1.1 response (status line + headers + body). *)
-val write_response :
-  _ Eio.Flow.sink ->
-  status:int ->
-  reason:string ->
-  headers:(string * string) list ->
-  body:string ->
-  unit
+val write_response
+  :  _ Eio.Flow.sink
+  -> status:int
+  -> reason:string
+  -> headers:(string * string) list
+  -> body:string
+  -> unit
 
 (** Write a single HTTP chunked-encoding frame.
     Does nothing if [data] is empty. *)
