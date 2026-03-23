@@ -132,6 +132,20 @@ let test_negotiate () =
   Printf.printf "✅ Codec negotiation: OK\n%!"
 ;;
 
+let test_negotiate_case_insensitive () =
+  let supported =
+    [ Grpc_core.Codec.gzip (); Grpc_core.Codec.zstd (); Grpc_core.Codec.identity ]
+  in
+  (* Mixed-case header values must still match *)
+  let codec = Grpc_core.Codec.negotiate ~supported ~accepted:"Gzip, Identity" in
+  assert (codec.name = "gzip");
+  let codec2 = Grpc_core.Codec.negotiate ~supported ~accepted:"ZSTD" in
+  assert (codec2.name = "zstd");
+  let codec3 = Grpc_core.Codec.negotiate ~supported ~accepted:" GZIP , ZSTD " in
+  assert (codec3.name = "gzip");
+  Printf.printf "  Codec negotiation (case-insensitive): OK\n%!"
+;;
+
 let test_negotiate_zstd () =
   let supported =
     [ Grpc_core.Codec.zstd (); Grpc_core.Codec.gzip (); Grpc_core.Codec.identity ]
@@ -153,6 +167,7 @@ let () =
   test_message_framing_gzip ();
   test_message_framing_zstd ();
   test_negotiate ();
+  test_negotiate_case_insensitive ();
   test_negotiate_zstd ();
   Printf.printf "\n=== All tests passed! ===\n%!"
 ;;
