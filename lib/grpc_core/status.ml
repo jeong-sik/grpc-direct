@@ -96,3 +96,17 @@ let code_to_string = function
 ;;
 
 let to_string t = Printf.sprintf "%s: %s" (code_to_string t.code) t.message
+
+(** Exception carrying a typed gRPC status.
+
+    Allows gRPC errors to be raised and caught with full status information
+    instead of using generic [Failure] with an unstructured message string. *)
+exception Grpc_error of t
+
+let () =
+  Printexc.register_printer (function
+    | Grpc_error t -> Some (Printf.sprintf "Grpc_error(%s)" (to_string t))
+    | _ -> None)
+;;
+
+let raise_error ?details code message = raise (Grpc_error (error ?details code message))

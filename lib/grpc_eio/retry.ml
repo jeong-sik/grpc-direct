@@ -76,8 +76,9 @@ let sleep_seconds (seconds : float) : unit = Eio_unix.sleep seconds
 
 (** Retry interceptor for client-side retry logic.
 
-    This interceptor wraps the RPC call and retries on retryable errors
-    according to the specified policy.
+    This interceptor wraps the RPC call and retries on
+    {!Grpc_core.Status.Grpc_error} exceptions whose status code is in the
+    policy's [retryable_codes] list.
 
     @param policy Retry policy configuration
     @param on_retry Optional callback when retry occurs *)
@@ -93,12 +94,11 @@ let interceptor
         let result = next ctx in
         result
       with
-      | Failure _msg when n < policy.max_attempts - 1 ->
-        (* Check if this is a gRPC error we should retry *)
-        (* For now, retry on generic failures *)
+      | Grpc_core.Status.Grpc_error status
+        when n < policy.max_attempts - 1 && is_retryable policy status.code ->
         let backoff = calculate_backoff policy n in
         (match on_retry with
-         | Some f -> f n Grpc_core.Status.Unknown backoff
+         | Some f -> f n status.code backoff
          | None -> ());
         sleep_seconds backoff;
         attempt (n + 1)
