@@ -192,7 +192,12 @@ let handle_server_streaming
       with
       | End_of_file -> finish_ok ())
   in
-  write_responses ()
+  write_responses ();
+  (* Close the response stream after the write loop exits.
+     If the handler left the stream open (async populate pattern),
+     this signals background producers to stop adding events.
+     Safe to call on an already-closed stream (no-op). *)
+  Grpc_stream.close response_stream
 ;;
 
 (** Handle client streaming RPC *)
