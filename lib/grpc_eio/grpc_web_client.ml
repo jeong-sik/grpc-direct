@@ -67,13 +67,7 @@ let parse_target (target : string) =
   | _ -> None
 ;;
 
-let read_file path =
-  let ic = open_in path in
-  let len = in_channel_length ic in
-  let content = really_input_string ic len in
-  close_in ic;
-  content
-;;
+let read_file = File_util.read_file
 
 let build_tls_client_config ~host (tls_cfg : tls_config option)
   : (Tls.Config.client option, string) result
