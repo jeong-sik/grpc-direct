@@ -112,10 +112,16 @@ let find_by_name ~supported name =
   List.find_opt (fun c -> normalize_name c.name = name) supported
 ;;
 
-(** Negotiate codec based on accept-encoding header *)
+(** Negotiate codec based on accept-encoding header.
+
+    Iterates over [supported] codecs in priority order and returns
+    the first whose name appears in the [accepted] header
+    (case-insensitive, per HTTP spec). Falls back to {!identity}. *)
 let negotiate ~supported ~accepted : t =
-  let accepted = String.split_on_char ',' accepted |> List.map String.trim in
-  List.find_opt (fun codec -> List.mem codec.name accepted) supported
+  let accepted_names = parse_accept accepted in
+  List.find_opt
+    (fun codec -> List.mem (normalize_name codec.name) accepted_names)
+    supported
   |> Option.value ~default:identity
 ;;
 
