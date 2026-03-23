@@ -77,6 +77,8 @@ type pooled_conn =
 type t =
   { config : config
   ; connections : pooled_conn Queue.t
+  ; in_use : (Client.t, pooled_conn) Hashtbl.t
+        (** Reverse lookup: Client.t -> pooled_conn for release *)
   ; mutable total_count : int
   ; mutable in_use_count : int
   ; mutex : Eio.Mutex.t
@@ -134,6 +136,7 @@ let create
   in
   { config
   ; connections = Queue.create ()
+  ; in_use = Hashtbl.create 16
   ; total_count = 0
   ; in_use_count = 0
   ; mutex = Eio.Mutex.create ()
@@ -183,6 +186,7 @@ let acquire ~sw ~env (pool : t) : (Client.t, string) result =
       in
       match find_idle () with
       | Some conn ->
+        Hashtbl.replace pool.in_use conn.client conn;
         pool.in_use_count <- pool.in_use_count + 1;
         pool.stats_acquired <- pool.stats_acquired + 1;
         Ok conn.client
@@ -190,6 +194,7 @@ let acquire ~sw ~env (pool : t) : (Client.t, string) result =
         (* Create new connection *)
         let conn = create_connection ~sw ~env pool in
         conn.state <- InUse;
+        Hashtbl.replace pool.in_use conn.client conn;
         pool.total_count <- pool.total_count + 1;
         pool.in_use_count <- pool.in_use_count + 1;
         pool.stats_acquired <- pool.stats_acquired + 1;
@@ -201,11 +206,29 @@ let acquire ~sw ~env (pool : t) : (Client.t, string) result =
         Error "Connection pool exhausted"))
 ;;
 
-(** Release a connection back to the pool *)
-let release (pool : t) (_client : Client.t) : unit =
+(** Release a connection back to the pool.
+
+    Looks up the [pooled_conn] via [in_use] table, transitions it to [Idle],
+    and pushes it back into the idle queue for reuse.  If the pool is closed
+    the connection is silently discarded. *)
+let release (pool : t) (client : Client.t) : unit =
   Eio.Mutex.use_rw ~protect:true pool.mutex (fun () ->
     pool.in_use_count <- pool.in_use_count - 1;
     pool.stats_released <- pool.stats_released + 1;
+    (match Hashtbl.find_opt pool.in_use client with
+     | Some conn when not pool.closed ->
+       Hashtbl.remove pool.in_use client;
+       conn.state <- Idle;
+       conn.last_used <- Time_compat.now ();
+       Queue.push conn pool.connections
+     | Some _ ->
+       (* Pool is closed, discard *)
+       Hashtbl.remove pool.in_use client;
+       pool.total_count <- pool.total_count - 1
+     | None ->
+       (* Unknown client or double-release; adjust total_count down
+          since the connection will never be returned to the queue. *)
+       pool.total_count <- pool.total_count - 1);
     (* Signal waiting acquires *)
     Eio.Condition.broadcast pool.condition)
 ;;
@@ -232,6 +255,7 @@ let close (pool : t) : unit =
   Eio.Mutex.use_rw ~protect:true pool.mutex (fun () ->
     pool.closed <- true;
     Queue.clear pool.connections;
+    Hashtbl.clear pool.in_use;
     pool.total_count <- 0;
     Eio.Condition.broadcast pool.condition)
 ;;
