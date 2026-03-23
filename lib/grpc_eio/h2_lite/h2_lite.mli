@@ -181,7 +181,7 @@ module Server : sig
     -> env:< net : [> [> `Generic ] Eio.Net.ty ] Eio.Net.t ; .. >
     -> port:int
     -> handler
-    -> 'a
+    -> unit
 end
 
 (** [init ()] pre-warms the buffer pool. Call once at startup. *)
