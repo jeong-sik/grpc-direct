@@ -250,6 +250,29 @@ let record_failure (balancer : t) (backend : backend) : unit =
     then backend.state <- Unhealthy)
 ;;
 
+(** Run [f] against the backend's pool or a fresh connection, then
+    record success/failure on the balancer. *)
+let run_on_backend ~sw ~env (balancer : t) (backend : backend) (f : Client.t -> 'a) : 'a =
+  let execute () =
+    match get_pool balancer backend.target with
+    | Some pool ->
+      (match Pool.with_connection ~sw ~env pool f with
+       | Ok v -> v
+       | Error msg -> failwith msg)
+    | None ->
+      let client = Client.connect ~sw ~env backend.target in
+      f client
+  in
+  try
+    let result = execute () in
+    record_success balancer backend;
+    result
+  with
+  | exn ->
+    record_failure balancer backend;
+    raise exn
+;;
+
 (** Execute a function with load-balanced client selection.
 
     Automatically selects a backend and records success/failure.
@@ -258,25 +281,7 @@ let record_failure (balancer : t) (backend : backend) : unit =
 let call ~sw ~env (balancer : t) (f : Client.t -> 'a) : 'a =
   match select_backend balancer with
   | None -> failwith "No healthy backends available"
-  | Some backend ->
-    let run_with_client () =
-      match get_pool balancer backend.target with
-      | Some pool ->
-        (match Pool.with_connection ~sw ~env pool f with
-         | Ok v -> v
-         | Error msg -> failwith msg)
-      | None ->
-        let client = Client.connect ~sw ~env backend.target in
-        f client
-    in
-    (try
-       let result = run_with_client () in
-       record_success balancer backend;
-       result
-     with
-     | exn ->
-       record_failure balancer backend;
-       raise exn)
+  | Some backend -> run_on_backend ~sw ~env balancer backend f
 ;;
 
 (** Execute with automatic retry on different backend *)
@@ -285,24 +290,8 @@ let call_with_retry ~sw ~env ?(max_retries = 2) (balancer : t) (f : Client.t -> 
     match select_backend balancer with
     | None -> failwith "No healthy backends available"
     | Some backend ->
-      let run_with_client () =
-        match get_pool balancer backend.target with
-        | Some pool ->
-          (match Pool.with_connection ~sw ~env pool f with
-           | Ok v -> v
-           | Error msg -> failwith msg)
-        | None ->
-          let client = Client.connect ~sw ~env backend.target in
-          f client
-      in
-      (try
-         let result = run_with_client () in
-         record_success balancer backend;
-         result
-       with
-       | exn ->
-         record_failure balancer backend;
-         if n < max_retries then attempt (n + 1) else raise exn)
+      (try run_on_backend ~sw ~env balancer backend f with
+       | exn -> if n < max_retries then attempt (n + 1) else raise exn)
   in
   attempt 0
 ;;
