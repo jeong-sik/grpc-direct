@@ -360,14 +360,7 @@ let parse_target (target : string) : (string * string * int) option =
   | _ -> None
 ;;
 
-(** Read file contents *)
-let read_file path =
-  let ic = open_in path in
-  let len = in_channel_length ic in
-  let content = really_input_string ic len in
-  close_in ic;
-  content
-;;
+let read_file = File_util.read_file
 
 (** Build TLS client configuration.
     For https:// targets, creates TLS config for server verification.

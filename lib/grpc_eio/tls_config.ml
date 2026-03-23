@@ -41,14 +41,7 @@ let create_mtls ~cert_file ~key_file ~ca_file : t =
   { cert_file; key_file; ca_file = Some ca_file; client_auth = RequireAndVerify }
 ;;
 
-(** Read file contents *)
-let read_file path =
-  let ic = open_in path in
-  let len = in_channel_length ic in
-  let content = really_input_string ic len in
-  close_in ic;
-  content
-;;
+let read_file = File_util.read_file
 
 (** Load CA certificates for client verification *)
 let load_ca_store (ca_file : string) : (X509.Authenticator.t, string) result =
