@@ -42,7 +42,7 @@ Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  ca-certs
  (tls-eio (>= 1.0))
  (mirage-crypto-rng-eio (>= 1.0))
- (mcp_protocol_eio (>= 0.13.0))
+ (mcp_protocol_eio (>= 0.15.0))
  (bisect_ppx (and :with-test (>= 2.8)))))
 
 (package
