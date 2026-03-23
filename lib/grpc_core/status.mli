@@ -38,6 +38,10 @@ val int_to_code : int -> code
 (** Alias for {!int_to_code}. *)
 val code_of_int : int -> code
 
+(** Convert a status code to its canonical SCREAMING_SNAKE_CASE name
+    (e.g. [OK], [NOT_FOUND], [DEADLINE_EXCEEDED]). *)
+val code_to_string : code -> string
+
 (** The canonical OK status with empty message and no details. *)
 val ok : t
 

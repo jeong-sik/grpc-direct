@@ -75,26 +75,25 @@ let ok = { code = OK; message = ""; details = None }
 let error ?details code message = { code; message; details }
 let is_ok t = t.code = OK
 
-let to_string t =
-  let code_str =
-    match t.code with
-    | OK -> "OK"
-    | Cancelled -> "CANCELLED"
-    | Unknown -> "UNKNOWN"
-    | Invalid_argument -> "INVALID_ARGUMENT"
-    | Deadline_exceeded -> "DEADLINE_EXCEEDED"
-    | Not_found -> "NOT_FOUND"
-    | Already_exists -> "ALREADY_EXISTS"
-    | Permission_denied -> "PERMISSION_DENIED"
-    | Resource_exhausted -> "RESOURCE_EXHAUSTED"
-    | Failed_precondition -> "FAILED_PRECONDITION"
-    | Aborted -> "ABORTED"
-    | Out_of_range -> "OUT_OF_RANGE"
-    | Unimplemented -> "UNIMPLEMENTED"
-    | Internal -> "INTERNAL"
-    | Unavailable -> "UNAVAILABLE"
-    | Data_loss -> "DATA_LOSS"
-    | Unauthenticated -> "UNAUTHENTICATED"
-  in
-  Printf.sprintf "%s: %s" code_str t.message
+let code_to_string = function
+  | OK -> "OK"
+  | Cancelled -> "CANCELLED"
+  | Unknown -> "UNKNOWN"
+  | Invalid_argument -> "INVALID_ARGUMENT"
+  | Deadline_exceeded -> "DEADLINE_EXCEEDED"
+  | Not_found -> "NOT_FOUND"
+  | Already_exists -> "ALREADY_EXISTS"
+  | Permission_denied -> "PERMISSION_DENIED"
+  | Resource_exhausted -> "RESOURCE_EXHAUSTED"
+  | Failed_precondition -> "FAILED_PRECONDITION"
+  | Aborted -> "ABORTED"
+  | Out_of_range -> "OUT_OF_RANGE"
+  | Unimplemented -> "UNIMPLEMENTED"
+  | Internal -> "INTERNAL"
+  | Unavailable -> "UNAVAILABLE"
+  | Data_loss -> "DATA_LOSS"
+  | Unauthenticated -> "UNAUTHENTICATED"
+;;
+
+let to_string t = Printf.sprintf "%s: %s" (code_to_string t.code) t.message
 ;;
