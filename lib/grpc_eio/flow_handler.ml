@@ -53,13 +53,52 @@ module IO = struct
   ;;
 end
 
-(** Start IO loop for H2 server connection *)
-let start_server_loop
-      ~read_buffer_size
-      ~sw:_
-      (connection : H2.Server_connection.t)
-      (flow : _ Eio.Flow.two_way)
-  =
+(** Connection operations shared between server and client loops.
+    Both [H2.Server_connection] and [H2.Client_connection] expose the
+    same set of operations; this record abstracts over the difference
+    so the IO loop can be written once. *)
+type conn_ops =
+  { next_read_operation : unit -> [ `Read | `Yield | `Close ]
+  ; read : Bigstringaf.t -> off:int -> len:int -> int
+  ; read_eof : Bigstringaf.t -> off:int -> len:int -> int
+  ; yield_reader : (unit -> unit) -> unit
+  ; report_exn : exn -> unit
+  ; next_write_operation :
+      unit -> [ `Write of Bigstringaf.t Faraday.iovec list | `Yield | `Close of int ]
+  ; report_write_result : [ `Ok of int | `Closed ] -> unit
+  ; yield_writer : (unit -> unit) -> unit
+  }
+
+(** Build [conn_ops] from an [H2.Server_connection.t]. *)
+let server_ops (conn : H2.Server_connection.t) : conn_ops =
+  { next_read_operation = (fun () -> H2.Server_connection.next_read_operation conn)
+  ; read = H2.Server_connection.read conn
+  ; read_eof = H2.Server_connection.read_eof conn
+  ; yield_reader = H2.Server_connection.yield_reader conn
+  ; report_exn = H2.Server_connection.report_exn conn
+  ; next_write_operation =
+      (fun () -> H2.Server_connection.next_write_operation conn)
+  ; report_write_result = H2.Server_connection.report_write_result conn
+  ; yield_writer = H2.Server_connection.yield_writer conn
+  }
+;;
+
+(** Build [conn_ops] from an [H2.Client_connection.t]. *)
+let client_ops (conn : H2.Client_connection.t) : conn_ops =
+  { next_read_operation = (fun () -> H2.Client_connection.next_read_operation conn)
+  ; read = H2.Client_connection.read conn
+  ; read_eof = H2.Client_connection.read_eof conn
+  ; yield_reader = H2.Client_connection.yield_reader conn
+  ; report_exn = H2.Client_connection.report_exn conn
+  ; next_write_operation =
+      (fun () -> H2.Client_connection.next_write_operation conn)
+  ; report_write_result = H2.Client_connection.report_write_result conn
+  ; yield_writer = H2.Client_connection.yield_writer conn
+  }
+;;
+
+(** Generic IO loop for any H2 connection (server or client). *)
+let start_loop ~read_buffer_size (ops : conn_ops) (flow : _ Eio.Flow.two_way) =
   let read_closed_p, read_closed_u = Promise.create () in
   let write_closed = Atomic.make false in
   let read_buffer = Buffer.create read_buffer_size in
@@ -72,25 +111,25 @@ let start_server_loop
            raise End_of_file)
     in
     let rec read_loop_step () =
-      match H2.Server_connection.next_read_operation connection with
+      match ops.next_read_operation () with
       | `Read ->
         (match read flow read_buffer with
          | _n ->
            let (_ : int) =
              Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-               H2.Server_connection.read connection buf ~off ~len)
+               ops.read buf ~off ~len)
            in
            ()
          | exception End_of_file ->
            let (_ : int) =
              Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-               H2.Server_connection.read_eof connection buf ~off ~len)
+               ops.read_eof buf ~off ~len)
            in
            ());
         read_loop_step ()
       | `Yield ->
         let p, u = Promise.create () in
-        H2.Server_connection.yield_reader connection (fun () -> Promise.resolve u ());
+        ops.yield_reader (fun () -> Promise.resolve u ());
         Promise.await p;
         read_loop ()
       | `Close ->
@@ -104,25 +143,25 @@ let start_server_loop
               Promise.resolve read_closed_u ();
               (match Atomic.get write_closed with
                | true -> ()
-               | false -> H2.Server_connection.report_exn connection exn)))
+               | false -> ops.report_exn exn)))
     in
     match read_loop_step () with
     | () -> ()
-    | exception exn -> H2.Server_connection.report_exn connection exn
+    | exception exn -> ops.report_exn exn
   in
   let rec write_loop () =
-    match H2.Server_connection.next_write_operation connection with
+    match ops.next_write_operation () with
     | `Write iovecs ->
       (match IO.writev flow iovecs with
        | `Ok n ->
-         H2.Server_connection.report_write_result connection (`Ok n);
+         ops.report_write_result (`Ok n);
          write_loop ()
        | `Closed ->
-         H2.Server_connection.report_write_result connection `Closed;
+         ops.report_write_result `Closed;
          write_loop ())
     | `Yield ->
       let p, u = Promise.create () in
-      H2.Server_connection.yield_writer connection (fun () -> Promise.resolve u ());
+      ops.yield_writer (fun () -> Promise.resolve u ());
       Promise.await p;
       write_loop ()
     | `Close _ ->
@@ -141,7 +180,7 @@ let create_server_handler
       ?(config = H2.Config.default)
       ~request_handler
       ~error_handler
-      ~sw
+      ~sw:_
       client_addr
       (flow : _ Eio.Flow.two_way)
   =
@@ -151,90 +190,10 @@ let create_server_handler
       ~error_handler:(error_handler client_addr)
       (request_handler client_addr)
   in
-  start_server_loop
+  start_loop
     ~read_buffer_size:config.H2.Config.read_buffer_size
-    ~sw
-    connection
+    (server_ops connection)
     flow
-;;
-
-(** Start IO loop for H2 client connection *)
-let start_client_loop
-      ~read_buffer_size
-      ~sw:_
-      (connection : H2.Client_connection.t)
-      (flow : _ Eio.Flow.two_way)
-  =
-  let read_closed_p, read_closed_u = Promise.create () in
-  let write_closed = Atomic.make false in
-  let read_buffer = Buffer.create read_buffer_size in
-  let rec read_loop () =
-    let read flow buffer =
-      Fiber.first
-        (fun () -> IO.read flow buffer)
-        (fun () ->
-           Promise.await read_closed_p;
-           raise End_of_file)
-    in
-    let rec read_loop_step () =
-      match H2.Client_connection.next_read_operation connection with
-      | `Read ->
-        (match read flow read_buffer with
-         | _n ->
-           let (_ : int) =
-             Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-               H2.Client_connection.read connection buf ~off ~len)
-           in
-           ()
-         | exception End_of_file ->
-           let (_ : int) =
-             Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-               H2.Client_connection.read_eof connection buf ~off ~len)
-           in
-           ());
-        read_loop_step ()
-      | `Yield ->
-        let p, u = Promise.create () in
-        H2.Client_connection.yield_reader connection (fun () -> Promise.resolve u ());
-        Promise.await p;
-        read_loop ()
-      | `Close ->
-        (match Promise.is_resolved read_closed_p with
-         | true -> ()
-         | false ->
-           (match read flow read_buffer with
-            | _n -> assert false
-            | exception (End_of_file as exn) ->
-              IO.shutdown flow `Receive;
-              Promise.resolve read_closed_u ();
-              (match Atomic.get write_closed with
-               | true -> ()
-               | false -> H2.Client_connection.report_exn connection exn)))
-    in
-    match read_loop_step () with
-    | () -> ()
-    | exception exn -> H2.Client_connection.report_exn connection exn
-  in
-  let rec write_loop () =
-    match H2.Client_connection.next_write_operation connection with
-    | `Write iovecs ->
-      (match IO.writev flow iovecs with
-       | `Ok n ->
-         H2.Client_connection.report_write_result connection (`Ok n);
-         write_loop ()
-       | `Closed ->
-         H2.Client_connection.report_write_result connection `Closed;
-         write_loop ())
-    | `Yield ->
-      let p, u = Promise.create () in
-      H2.Client_connection.yield_writer connection (fun () -> Promise.resolve u ());
-      Promise.await p;
-      write_loop ()
-    | `Close _ ->
-      Atomic.set write_closed true;
-      IO.shutdown flow `Send
-  in
-  Fiber.both read_loop write_loop
 ;;
 
 (** Create H2 client connection for any [Eio.Flow.two_way].
@@ -252,12 +211,10 @@ let create_client_connection
   : H2.Client_connection.t
   =
   let connection = H2.Client_connection.create ~config ~error_handler () in
-  (* Start the IO loop in a background fiber *)
   Fiber.fork ~sw (fun () ->
-    start_client_loop
+    start_loop
       ~read_buffer_size:config.H2.Config.read_buffer_size
-      ~sw
-      connection
+      (client_ops connection)
       flow);
   connection
 ;;
