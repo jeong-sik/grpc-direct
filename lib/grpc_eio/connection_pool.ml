@@ -154,7 +154,11 @@ module TargetPool = struct
       if conn.error_count > 3
       then (
         conn.state <- Closed;
-        pool.connections <- List.filter (fun c -> c.id <> conn.id) pool.connections))
+        pool.connections <- List.filter (fun c -> c.id <> conn.id) pool.connections)
+      else
+        (* Return the connection to Idle so it can be reused.
+           Without this, a connection with 1-3 errors stays Busy forever. *)
+        conn.state <- Idle)
   ;;
 
   let cleanup_idle pool now =
@@ -275,7 +279,14 @@ let print_stats t =
 (** {1 RAII-style Connection Guard} *)
 
 (** Use connection with automatic release on scope exit.
-    Similar to Go's defer or Rust's Drop. *)
+    Similar to Go's defer or Rust's Drop.
+
+    On success the connection is released back to the pool.
+    On exception the error is recorded (which may close the connection
+    when error_count exceeds the threshold) and the exception is re-raised.
+    [release] is NOT called on the error path because [report_error] already
+    handles connection lifecycle: calling both would double-count
+    [total_released] and could set an errored connection back to [Idle]. *)
 let with_connection t target f =
   match acquire t target with
   | None -> Error `Pool_exhausted
@@ -286,6 +297,5 @@ let with_connection t target f =
        Ok result
      | exception exn ->
        report_error t conn;
-       release t conn;
        raise exn)
 ;;
