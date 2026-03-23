@@ -57,3 +57,21 @@ val is_ok : t -> bool
 
 (** Human-readable string: ["CODE: message"]. *)
 val to_string : t -> string
+
+(** Exception carrying a typed gRPC status.
+
+    Use this instead of [Failure] to propagate gRPC errors through the
+    interceptor chain with full status information (code, message, details).
+
+    {[
+      raise (Grpc_error (Status.error Unavailable "server down"))
+      (* or equivalently: *)
+      Status.raise_error Unavailable "server down"
+    ]} *)
+exception Grpc_error of t
+
+(** Raise a {!Grpc_error} with the given code and message.
+
+    @param details Optional detail string.
+    @raise Grpc_error always. *)
+val raise_error : ?details:string -> code -> string -> 'a
