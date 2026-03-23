@@ -96,4 +96,3 @@ let code_to_string = function
 ;;
 
 let to_string t = Printf.sprintf "%s: %s" (code_to_string t.code) t.message
-;;
