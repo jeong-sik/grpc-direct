@@ -9,7 +9,9 @@
     Raises [Sys_error] if the file cannot be opened. *)
 let read_file path =
   let ic = open_in path in
-  Fun.protect ~finally:(fun () -> close_in_noerr ic) (fun () ->
-    let len = in_channel_length ic in
-    really_input_string ic len)
+  Fun.protect
+    ~finally:(fun () -> close_in_noerr ic)
+    (fun () ->
+       let len = in_channel_length ic in
+       really_input_string ic len)
 ;;

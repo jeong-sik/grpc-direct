@@ -82,8 +82,7 @@ let get_status_locked (t : t) ~(service : string) : status =
     @param service Service name (empty string for overall server health)
     @param status New status *)
 let set_status (t : t) ~(service : string) (status : status) : unit =
-  Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
-    set_status_locked t ~service status)
+  Eio.Mutex.use_rw ~protect:true t.mutex (fun () -> set_status_locked t ~service status)
 ;;
 
 (** Get the health status for a service.
@@ -112,9 +111,7 @@ let set_all_serving (t : t) : unit =
 (** Mark all services as not serving (for graceful shutdown) *)
 let set_all_not_serving (t : t) : unit =
   Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
-    Hashtbl.iter
-      (fun service _ -> set_status_locked t ~service Not_serving)
-      t.statuses;
+    Hashtbl.iter (fun service _ -> set_status_locked t ~service Not_serving) t.statuses;
     t.default_status <- Not_serving;
     set_status_locked t ~service:"" Not_serving)
 ;;
@@ -171,9 +168,7 @@ let watch (t : t) ~(service : string) : status Grpc_stream.t =
   Eio.Mutex.use_rw ~protect:true t.mutex (fun () ->
     let stream = Grpc_stream.create 8 in
     (* Register watcher *)
-    let existing =
-      Hashtbl.find_opt t.watchers service |> Option.value ~default:[]
-    in
+    let existing = Hashtbl.find_opt t.watchers service |> Option.value ~default:[] in
     Hashtbl.replace t.watchers service (stream :: existing);
     (* Send initial status *)
     Grpc_stream.add stream (get_status_locked t ~service);

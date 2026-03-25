@@ -76,8 +76,7 @@ let server_ops (conn : H2.Server_connection.t) : conn_ops =
   ; read_eof = H2.Server_connection.read_eof conn
   ; yield_reader = H2.Server_connection.yield_reader conn
   ; report_exn = H2.Server_connection.report_exn conn
-  ; next_write_operation =
-      (fun () -> H2.Server_connection.next_write_operation conn)
+  ; next_write_operation = (fun () -> H2.Server_connection.next_write_operation conn)
   ; report_write_result = H2.Server_connection.report_write_result conn
   ; yield_writer = H2.Server_connection.yield_writer conn
   }
@@ -90,8 +89,7 @@ let client_ops (conn : H2.Client_connection.t) : conn_ops =
   ; read_eof = H2.Client_connection.read_eof conn
   ; yield_reader = H2.Client_connection.yield_reader conn
   ; report_exn = H2.Client_connection.report_exn conn
-  ; next_write_operation =
-      (fun () -> H2.Client_connection.next_write_operation conn)
+  ; next_write_operation = (fun () -> H2.Client_connection.next_write_operation conn)
   ; report_write_result = H2.Client_connection.report_write_result conn
   ; yield_writer = H2.Client_connection.yield_writer conn
   }
@@ -116,14 +114,12 @@ let start_loop ~read_buffer_size (ops : conn_ops) (flow : _ Eio.Flow.two_way) =
         (match read flow read_buffer with
          | _n ->
            let (_ : int) =
-             Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-               ops.read buf ~off ~len)
+             Buffer.get read_buffer ~f:(fun buf ~off ~len -> ops.read buf ~off ~len)
            in
            ()
          | exception End_of_file ->
            let (_ : int) =
-             Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-               ops.read_eof buf ~off ~len)
+             Buffer.get read_buffer ~f:(fun buf ~off ~len -> ops.read_eof buf ~off ~len)
            in
            ());
         read_loop_step ()
