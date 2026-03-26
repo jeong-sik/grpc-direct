@@ -12,6 +12,9 @@
   stream
   flow_control
   priority_scheduler
+  connection_common
+  connection_reader
+  connection_writer
   connection
   grpc_message
   h2_lite)
