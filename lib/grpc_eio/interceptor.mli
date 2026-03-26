@@ -8,7 +8,7 @@
     - Single-domain safe: Yes
     - Multi-domain safe: Partial
       - Context extensions use Hashtbl (not thread-safe across domains)
-      - Stream interceptors with mutable counters need Atomic.t for multi-domain
+      - Stream interceptors with mutable counters need [\[@atomic\]] fields or [Atomic.t] for multi-domain
 
     {b Unary vs Stream Interceptors:}
     - Unary interceptors wrap request/response pairs

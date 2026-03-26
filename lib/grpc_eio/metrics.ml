@@ -9,10 +9,10 @@
     {b Thread Safety:}
     - Single-domain safe: Yes (cooperative scheduling)
     - Multi-domain safe: Yes
-      - Counter: uses [Atomic.t] for independent increments
+      - Counter: uses [\[@atomic\]] record field (OCaml 5.4+) for independent increments
       - Gauge: uses [Eio.Mutex] for float read-modify-write
       - Histogram: uses [Eio.Mutex] for multi-field atomic updates
-      - Registry total_calls/total_errors: uses [Atomic.t]
+      - Registry total_calls/total_errors: uses [\[@atomic\]] record fields (OCaml 5.4+)
 
     @see {{: https://github.com/ocaml-multicore/eio/blob/main/doc/multicore.md } Eio Multicore Guide}
 
@@ -28,15 +28,15 @@
 
 (** Counter for simple incrementing values.
 
-    Uses [Atomic.t] for multi-domain safety on independent increments. *)
+    Uses [\[@atomic\]] record field (OCaml 5.4+) for multi-domain safety on independent increments. *)
 module Counter = struct
-  type t = { value : int Atomic.t }
+  type t = { mutable value : int [@atomic] }
 
-  let create () : t = { value = Atomic.make 0 }
-  let inc (c : t) : unit = ignore (Atomic.fetch_and_add c.value 1)
-  let inc_by (c : t) (n : int) : unit = ignore (Atomic.fetch_and_add c.value n)
-  let get (c : t) : int = Atomic.get c.value
-  let reset (c : t) : unit = Atomic.set c.value 0
+  let create () : t = { value = 0 }
+  let inc (c : t) : unit = ignore (Atomic.Loc.fetch_and_add [%atomic.loc c.value] 1)
+  let inc_by (c : t) (n : int) : unit = ignore (Atomic.Loc.fetch_and_add [%atomic.loc c.value] n)
+  let get (c : t) : int = Atomic.Loc.get [%atomic.loc c.value]
+  let reset (c : t) : unit = Atomic.Loc.set [%atomic.loc c.value] 0
 end
 
 (** Gauge for values that can go up and down.
@@ -153,19 +153,19 @@ let create_method_metrics () : method_metrics =
 
 (** Metrics registry.
 
-    Uses [Atomic.t] for total_calls/total_errors (independent counters). *)
+    Uses [\[@atomic\]] record fields (OCaml 5.4+) for total_calls/total_errors (independent counters). *)
 type t =
   { methods : (string, method_metrics) Hashtbl.t
-  ; total_calls : int Atomic.t
-  ; total_errors : int Atomic.t
+  ; mutable total_calls : int [@atomic]
+  ; mutable total_errors : int [@atomic]
   ; start_time : float
   }
 
 (** Create a new metrics registry *)
 let create () : t =
   { methods = Hashtbl.create 32
-  ; total_calls = Atomic.make 0
-  ; total_errors = Atomic.make 0
+  ; total_calls = 0
+  ; total_errors = 0
   ; start_time = Time_compat.now ()
   }
 ;;
@@ -183,7 +183,7 @@ let get_method (m : t) ~(method_ : string) : method_metrics =
 (** Record a call start *)
 let record_call_start (m : t) ~(method_ : string) : unit =
   let mm = get_method m ~method_ in
-  Atomic.incr m.total_calls;
+  ignore (Atomic.Loc.fetch_and_add [%atomic.loc m.total_calls] 1);
   Counter.inc mm.calls_total;
   Gauge.inc mm.active_calls
 ;;
@@ -204,7 +204,7 @@ let record_call_end
   Histogram.observe mm.latency latency_sec;
   if not success
   then (
-    Atomic.incr m.total_errors;
+    ignore (Atomic.Loc.fetch_and_add [%atomic.loc m.total_errors] 1);
     Counter.inc mm.calls_failed);
   (match request_size with
    | Some s -> Histogram.observe mm.request_bytes (float_of_int s)
@@ -244,17 +244,17 @@ let client_interceptor (m : t) : string Interceptor.t =
 let uptime (m : t) : float = Time_compat.now () -. m.start_time
 
 (** Get total call count *)
-let total_calls (m : t) : int = Atomic.get m.total_calls
+let total_calls (m : t) : int = Atomic.Loc.get [%atomic.loc m.total_calls]
 
 (** Get total error count *)
-let total_errors (m : t) : int = Atomic.get m.total_errors
+let total_errors (m : t) : int = Atomic.Loc.get [%atomic.loc m.total_errors]
 
 (** Get error rate (0.0 to 1.0) *)
 let error_rate (m : t) : float =
-  let calls = Atomic.get m.total_calls in
+  let calls = Atomic.Loc.get [%atomic.loc m.total_calls] in
   if calls = 0
   then 0.0
-  else float_of_int (Atomic.get m.total_errors) /. float_of_int calls
+  else float_of_int (Atomic.Loc.get [%atomic.loc m.total_errors]) /. float_of_int calls
 ;;
 
 (** Export metrics in Prometheus text format *)
@@ -279,7 +279,7 @@ let to_prometheus (m : t) : string =
   (* Total calls *)
   add "# HELP grpc_server_calls_total Total number of gRPC calls\n";
   add "# TYPE grpc_server_calls_total counter\n";
-  add (Printf.sprintf "grpc_server_calls_total %d\n" (Atomic.get m.total_calls));
+  add (Printf.sprintf "grpc_server_calls_total %d\n" (Atomic.Loc.get [%atomic.loc m.total_calls]));
   Hashtbl.iter
     (fun method_ mm ->
        add
@@ -292,7 +292,7 @@ let to_prometheus (m : t) : string =
   (* Total errors *)
   add "# HELP grpc_server_calls_failed_total Total number of failed gRPC calls\n";
   add "# TYPE grpc_server_calls_failed_total counter\n";
-  add (Printf.sprintf "grpc_server_calls_failed_total %d\n" (Atomic.get m.total_errors));
+  add (Printf.sprintf "grpc_server_calls_failed_total %d\n" (Atomic.Loc.get [%atomic.loc m.total_errors]));
   Hashtbl.iter
     (fun method_ mm ->
        add
@@ -404,11 +404,11 @@ let serve_prometheus
 (** Print metrics summary to a log function *)
 let log_summary ?(log = print_endline) (m : t) : unit =
   log (Printf.sprintf "gRPC Metrics Summary (uptime: %.1fs)" (uptime m));
-  log (Printf.sprintf "  Total calls: %d" (Atomic.get m.total_calls));
+  log (Printf.sprintf "  Total calls: %d" (Atomic.Loc.get [%atomic.loc m.total_calls]));
   log
     (Printf.sprintf
        "  Total errors: %d (%.2f%%)"
-       (Atomic.get m.total_errors)
+       (Atomic.Loc.get [%atomic.loc m.total_errors])
        (error_rate m *. 100.0));
   Hashtbl.iter
     (fun method_ mm ->

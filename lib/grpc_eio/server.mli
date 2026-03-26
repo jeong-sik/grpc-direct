@@ -7,7 +7,7 @@
     - Single-domain safe: Yes
     - Multi-domain safe: Partial
       - Services Hashtbl: Safe if registered at startup only (before [serve])
-      - [mutable running]: Simple flag, atomic read/write on most platforms
+      - [running]: Uses [\[@atomic\]] record field (OCaml 5.4+) for safe concurrent read/write
       - Request body [ref]: Per-request, no sharing between fibers
 
     @see {{: https://github.com/ocaml-multicore/eio/blob/main/doc/multicore.md } Eio Multicore Guide}

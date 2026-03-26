@@ -146,8 +146,8 @@ module RingBuffer = struct
     { buffer : 'a option Atomic.t array
     ; capacity : int (** Power of 2 *)
     ; mask : int (** capacity - 1 for fast modulo *)
-    ; producer_cursor : int Atomic.t
-    ; consumer_cursor : int Atomic.t
+    ; mutable producer_cursor : int [@atomic]
+    ; mutable consumer_cursor : int [@atomic]
       (* Padding to separate cache lines would go here in low-level impl *)
     }
 
@@ -162,46 +162,52 @@ module RingBuffer = struct
     { buffer = Array.init capacity (fun _ -> Atomic.make None)
     ; capacity
     ; mask = capacity - 1
-    ; producer_cursor = Atomic.make 0
-    ; consumer_cursor = Atomic.make 0
+    ; producer_cursor = 0
+    ; consumer_cursor = 0
     }
   ;;
 
   (** Try to push an item (non-blocking) *)
   let try_push t item =
-    let producer_pos = Atomic.get t.producer_cursor in
-    let consumer_pos = Atomic.get t.consumer_cursor in
+    let producer_pos = Atomic.Loc.get [%atomic.loc t.producer_cursor] in
+    let consumer_pos = Atomic.Loc.get [%atomic.loc t.consumer_cursor] in
     if producer_pos - consumer_pos >= t.capacity
     then false (* Buffer full *)
     else (
       let index = producer_pos land t.mask in
       Atomic.set t.buffer.(index) (Some item);
       (* Memory barrier: ensure item is visible before advancing cursor *)
-      Atomic.incr t.producer_cursor;
+      ignore (Atomic.Loc.fetch_and_add [%atomic.loc t.producer_cursor] 1);
       true)
   ;;
 
   (** Try to pop an item (non-blocking) *)
   let try_pop t =
-    let consumer_pos = Atomic.get t.consumer_cursor in
-    let producer_pos = Atomic.get t.producer_cursor in
+    let consumer_pos = Atomic.Loc.get [%atomic.loc t.consumer_cursor] in
+    let producer_pos = Atomic.Loc.get [%atomic.loc t.producer_cursor] in
     if consumer_pos >= producer_pos
     then None (* Buffer empty *)
     else (
       let index = consumer_pos land t.mask in
       let item = Atomic.get t.buffer.(index) in
       Atomic.set t.buffer.(index) None;
-      Atomic.incr t.consumer_cursor;
+      ignore (Atomic.Loc.fetch_and_add [%atomic.loc t.consumer_cursor] 1);
       item)
   ;;
 
-  let is_empty t = Atomic.get t.consumer_cursor >= Atomic.get t.producer_cursor
+  let is_empty t =
+    Atomic.Loc.get [%atomic.loc t.consumer_cursor]
+    >= Atomic.Loc.get [%atomic.loc t.producer_cursor]
 
   let is_full t =
-    Atomic.get t.producer_cursor - Atomic.get t.consumer_cursor >= t.capacity
+    Atomic.Loc.get [%atomic.loc t.producer_cursor]
+    - Atomic.Loc.get [%atomic.loc t.consumer_cursor]
+    >= t.capacity
   ;;
 
-  let size t = Atomic.get t.producer_cursor - Atomic.get t.consumer_cursor
+  let size t =
+    Atomic.Loc.get [%atomic.loc t.producer_cursor]
+    - Atomic.Loc.get [%atomic.loc t.consumer_cursor]
 end
 
 (** {1 Adaptive Batching}
