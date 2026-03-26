@@ -38,14 +38,14 @@ module StreamBuffer = struct
     }
 
   let create ?(capacity = 1024) () = { contents = Bytes.create capacity; length = 0 }
-  let _length t = t.length
-  let capacity t = Bytes.length t.contents
+  let _length (t : t) = t.length
+  let capacity (t : t) = Bytes.length t.contents
 
   let rec nearest_power_of_2 acc target =
     if acc >= target then acc else nearest_power_of_2 (acc * 2) target
   ;;
 
-  let ensure_size t ~extra =
+  let ensure_size (t : t) ~extra =
     let current_capacity = capacity t in
     let needed_capacity = t.length + extra in
     if needed_capacity > current_capacity
@@ -56,14 +56,14 @@ module StreamBuffer = struct
       t.contents <- new_contents)
   ;;
 
-  let append_bigstringaf t bs ~off ~len =
+  let append_bigstringaf (t : t) bs ~off ~len =
     ensure_size t ~extra:len;
     Bigstringaf.blit_to_bytes bs ~src_off:off t.contents ~dst_off:t.length ~len;
     t.length <- t.length + len
   ;;
 
-  let to_string t = Bytes.sub_string t.contents 0 t.length
-  let _reset t = t.length <- 0
+  let to_string (t : t) = Bytes.sub_string t.contents 0 t.length
+  let _reset (t : t) = t.length <- 0
 end
 
 (** gRPC message framing helpers *)

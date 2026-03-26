@@ -46,13 +46,13 @@ module Protoc = struct
     in
     let error = ref None in
     List.iter
-      (fun (num, field) ->
+      (fun (num, (field : Field.t)) ->
          match num, field with
-         | 1, Field.Length_delimited ld ->
+         | 1, Length_delimited ld ->
            file_to_generate := string_of_length_delimited ld :: !file_to_generate
-         | 2, Field.Length_delimited ld ->
+         | 2, Length_delimited ld ->
            parameter := Some (string_of_length_delimited ld)
-         | 15, Field.Length_delimited ld ->
+         | 15, Length_delimited ld ->
            (match decode_proto_file ld with
             | Ok file -> proto_file := file :: !proto_file
             | Error _ -> error := Some "Failed to decode FileDescriptorProto")

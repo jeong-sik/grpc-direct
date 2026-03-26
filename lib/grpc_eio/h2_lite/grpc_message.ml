@@ -103,7 +103,7 @@ module Status = struct
     | DataLoss (* 15 *)
     | Unauthenticated (* 16 *)
 
-  let to_int = function
+  let to_int : t -> int = function
     | Ok -> 0
     | Cancelled -> 1
     | Unknown -> 2
@@ -123,7 +123,7 @@ module Status = struct
     | Unauthenticated -> 16
   ;;
 
-  let of_int = function
+  let of_int : int -> t = function
     | 0 -> Ok
     | 1 -> Cancelled
     | 2 -> Unknown
@@ -144,7 +144,7 @@ module Status = struct
     | _ -> Unknown
   ;;
 
-  let to_string = function
+  let to_string : t -> string = function
     | Ok -> "OK"
     | Cancelled -> "CANCELLED"
     | Unknown -> "UNKNOWN"

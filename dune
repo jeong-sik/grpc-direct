@@ -1,8 +1,15 @@
-; Suppress warning 69 (unused-field) project-wide.
-; Many record fields are reserved for future use (pool, balancer, server_lite).
-; TODO: Fix individually and remove this suppression.
+; Strict warning configuration: all warnings enabled as errors,
+; with targeted suppressions for non-actionable noise.
+;
+; -4:  fragile-match - intentional wildcards for H2 frame dispatch and protobuf fields
+; -40: name-out-of-scope - type-directed record disambiguation (idiomatic OCaml 4.01+)
+; -42: disambiguated-name - same category as -40
+; -44: open-shadow-identifier - expected with local opens
+; -45: open-shadow-label-constructor - expected with local opens
+; -69: unused-field - reserved record fields for future use
+; -70: missing-mli - not all internal modules need .mli files
 
 (env
  (_
   (flags
-   (:standard -w -69))))
+   (:standard -w +a-4-40-42-44-45-69-70 -warn-error +a-4-40-42-44-45-69-70))))

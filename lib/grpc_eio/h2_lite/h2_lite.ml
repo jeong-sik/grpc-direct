@@ -496,7 +496,7 @@ module Client = struct
   ;;
 
   (** Make unary gRPC call *)
-  let call_unary t ~service ~method_ ~request : Cstruct.t =
+  let call_unary (t : t) ~service ~method_ ~request : Cstruct.t =
     let stream =
       open_stream
         ~is_client:true
@@ -565,7 +565,7 @@ module Client = struct
   ;;
 
   (** Close client connection *)
-  let close t = Connection.close t.conn
+  let close (t : t) = Connection.close t.conn
 end
 
 (** High-level gRPC server API *)
