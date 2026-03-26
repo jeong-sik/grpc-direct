@@ -6,6 +6,8 @@
   log
   buffer_pool
   frame
+  hpack_huffman
+  hpack_static
   hpack
   stream
   flow_control
