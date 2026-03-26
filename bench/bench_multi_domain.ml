@@ -74,9 +74,9 @@ let run_ghz_benchmark ~label =
   (* Parse key metrics *)
   let parse_metric pattern =
     try
-      let re = Str.regexp pattern in
-      ignore (Str.search_forward re result 0);
-      Some (Str.matched_group 1 result)
+      let re = Re.Str.regexp pattern in
+      ignore (Re.Str.search_forward re result 0);
+      Some (Re.Str.matched_group 1 result)
     with
     | Not_found -> None
   in
