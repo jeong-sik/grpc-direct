@@ -16,6 +16,6 @@
   digestif
   mirage-crypto-rng-eio
   mirage-crypto-rng.unix
-  mcp_protocol_eio)
+  mcp_protocol.eio)
  (instrumentation
   (backend bisect_ppx)))
