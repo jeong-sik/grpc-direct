@@ -3,15 +3,24 @@
  (public_name grpc-direct)
  (libraries
   grpc_core
+  cstruct
+  bigstringaf
+  faraday
+  unix
   eio
+  eio.unix
   eio_main
+  domain-name
+  gluten
   h2
   h2-eio
   h2_lite
   gluten-eio
   uri
+  ptime.clock
   tls-eio
   tls
+  x509
   ca-certs
   digestif
   mirage-crypto-rng-eio

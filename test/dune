@@ -20,7 +20,7 @@
 
 (test
  (name test_tls)
- (libraries grpc_eio tls mirage-crypto-rng-eio))
+ (libraries grpc_eio tls unix mirage-crypto-rng-eio))
 
 (test
  (name test_grpc_web)
@@ -44,11 +44,11 @@
 
 (test
  (name test_h2_frame)
- (libraries h2_lite))
+ (libraries h2_lite cstruct))
 
 (test
  (name test_hpack)
- (libraries h2_lite))
+ (libraries h2_lite cstruct))
 
 (test
  (name test_flow_control)
@@ -56,7 +56,7 @@
 
 (test
  (name test_grpc_message)
- (libraries h2_lite))
+ (libraries h2_lite cstruct))
 
 ;; Test server for debugging :status header issue
 

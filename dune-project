@@ -1,8 +1,9 @@
-(lang dune 3.13)
+(lang dune 3.17)
 (name grpc-direct)
 (version 0.2.6)
 
 (generate_opam_files true)
+(implicit_transitive_deps false)
 
 (license Apache-2.0)
 (authors "Jeong-Sik Yun")
@@ -17,7 +18,7 @@
 Zero dependencies on runtime systems - works with Eio, Lwt, or Async.")
  (depends
   (ocaml (>= 5.1))
-  (dune (>= 3.13))
+  (dune (>= 3.17))
   (dune-build-info (>= 0.1))
   (decompress (>= 1.5.0))
   (bigstringaf (>= 0.9.0))
@@ -32,15 +33,19 @@ Features: Health Check, Retry Policy, Prometheus Metrics, Server Reflection,
 Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (depends
   (ocaml (>= 5.1))
-  (dune (>= 3.13))
+  (dune (>= 3.17))
   (grpc-direct-core (= :version))
+  (cstruct (>= 6.0))
+  (bigstringaf (>= 0.9.0))
   (eio (>= 1.0))
- (eio_main (>= 1.0))
- (h2-eio (>= 0.13.0))
- uri
- (digestif (>= 1.1.4))
- ca-certs
- (tls-eio (>= 1.0))
+  (eio_main (>= 1.0))
+  (gluten (>= 0.4))
+  (h2-eio (>= 0.13.0))
+  uri
+  (x509 (>= 0.16))
+  (digestif (>= 1.1.4))
+  ca-certs
+  (tls-eio (>= 2.0))
  (mirage-crypto-rng-eio (>= 1.0))
  (mcp_protocol (>= 1.0.0))
  (bisect_ppx (and :with-test (>= 2.8)))))
@@ -51,6 +56,6 @@ Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (description "Generate OCaml code from .proto files for grpc-direct")
  (depends
   (ocaml (>= 5.1))
-  (dune (>= 3.13))
+  (dune (>= 3.17))
   (ocaml-protoc-plugin (>= 6.0))
   (bisect_ppx (and :with-test (>= 2.8)))))

@@ -34,7 +34,7 @@
 
 (executable
  (name h2spec_server)
- (libraries h2_lite eio eio_main))
+ (libraries h2_lite cstruct eio eio_main))
 
 (executable
  (name slow_reader_client)
