@@ -1,7 +1,7 @@
 (executable
  (name streaming_server)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio_main))
 
 (executable
  (name streaming_client)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio_main))

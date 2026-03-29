@@ -1,7 +1,7 @@
 (library
  (name h2_lite)
  (public_name grpc-direct.h2_lite)
- (libraries cstruct eio)
+ (libraries cstruct eio eio.core)
  (modules
   log
   buffer_pool
@@ -21,19 +21,19 @@
 (executable
  (name echo_server)
  (modules echo_server)
- (libraries h2_lite cstruct eio eio.unix unix eio_main)
+ (libraries h2_lite cstruct eio eio.core eio.unix unix eio_main)
  (ocamlopt_flags
   (:standard -O3)))
 
 (executable
  (name echo_server_multi)
  (modules echo_server_multi)
- (libraries h2_lite cstruct eio eio_main))
+ (libraries h2_lite cstruct eio eio.core eio_main))
 
 (executable
  (name echo_server_turbo)
  (modules echo_server_turbo)
- (libraries h2_lite cstruct eio eio.unix unix eio_main)
+ (libraries h2_lite cstruct eio eio.core eio.unix unix eio_main)
  (ocamlopt_flags
   (:standard -O3)))
 

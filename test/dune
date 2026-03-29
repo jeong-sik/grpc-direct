@@ -52,7 +52,7 @@
 
 (test
  (name test_flow_control)
- (libraries h2_lite eio eio_main))
+ (libraries h2_lite eio eio.core eio_main))
 
 (test
  (name test_grpc_message)
@@ -63,11 +63,11 @@
 (executable
  (name test_server)
  (modules test_server)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio_main))
 
 ;; Debug server with direct h2 usage
 
 (executable
  (name test_server_debug)
  (modules test_server_debug log)
- (libraries h2 h2-eio eio eio_main bigstringaf))
+ (libraries h2 h2-eio eio eio.core eio_main bigstringaf))

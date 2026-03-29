@@ -1,9 +1,9 @@
 (executable
  (name h2_lite_advanced_server)
  (modules h2_lite_advanced_server)
- (libraries h2_lite cstruct eio eio_main))
+ (libraries h2_lite cstruct eio eio.core eio_main))
 
 (executable
  (name h2_lite_advanced_client)
  (modules h2_lite_advanced_client)
- (libraries h2_lite cstruct eio eio_main))
+ (libraries h2_lite cstruct eio eio.core eio_main))

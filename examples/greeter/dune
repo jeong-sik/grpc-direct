@@ -1,7 +1,7 @@
 (executable
  (name greeter_server)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio_main))
 
 (executable
  (name greeter_client)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio_main))
