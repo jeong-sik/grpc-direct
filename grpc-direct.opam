@@ -13,7 +13,7 @@ homepage: "https://github.com/jeong-sik/grpc-direct"
 doc: "https://github.com/jeong-sik/grpc-direct"
 bug-reports: "https://github.com/jeong-sik/grpc-direct/issues"
 depends: [
-  "ocaml" {>= "5.1"}
+  "ocaml" {>= "5.2"}
   "dune" {>= "3.17" & >= "3.17"}
   "grpc-direct-core" {= version}
   "cstruct" {>= "6.0"}
