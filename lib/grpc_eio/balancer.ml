@@ -121,7 +121,7 @@ let create
   let weights =
     match strategy with
     | WeightedRoundRobin ws -> ws
-    | _ -> List.map (fun _ -> 1) targets
+    | PickFirst | RoundRobin | Random -> List.map (fun _ -> 1) targets
   in
   let backends =
     List.map2 (fun target weight -> create_backend ~weight target) targets weights

@@ -68,7 +68,7 @@ module Gzip = struct
 end
 
 let gzip ?(level = 4) () : t =
-  { name = "gzip"; encoder = Gzip.encoder ~level; decoder = Gzip.decoder }
+  { name = "gzip"; encoder = (fun str -> Gzip.encoder ~level str); decoder = Gzip.decoder }
 ;;
 
 (** Zstd codec - Compact Protocol v4

@@ -412,7 +412,7 @@ let parse_service_description (input : string) : service_def option =
   let service_name = ref "" in
   let methods = ref [] in
   let rpc_regex =
-    Str.regexp
+    Re.Str.regexp
       {|rpc[ ]+\([A-Za-z0-9_]+\)[ ]*([ ]*\(stream[ ]+\)?\([A-Za-z0-9_.]+\)[ ]*)[ ]*returns[ ]*([ ]*\(stream[ ]+\)?\([A-Za-z0-9_.]+\)[ ]*)|}
   in
   List.iter
@@ -421,19 +421,19 @@ let parse_service_description (input : string) : service_def option =
        then package := String.trim (String.sub line 8 (String.length line - 8))
        else if String.starts_with ~prefix:"service:" line
        then service_name := String.trim (String.sub line 8 (String.length line - 8))
-       else if Str.string_match rpc_regex line 0
+       else if Re.Str.string_match rpc_regex line 0
        then (
-         let name = Str.matched_group 1 line in
+         let name = Re.Str.matched_group 1 line in
          let client_stream =
-           try Str.matched_group 2 line <> "" with
+           try Re.Str.matched_group 2 line <> "" with
            | Not_found -> false
          in
-         let input_type = Str.matched_group 3 line in
+         let input_type = Re.Str.matched_group 3 line in
          let server_stream =
-           try Str.matched_group 4 line <> "" with
+           try Re.Str.matched_group 4 line <> "" with
            | Not_found -> false
          in
-         let output_type = Str.matched_group 5 line in
+         let output_type = Re.Str.matched_group 5 line in
          let method_type =
            match client_stream, server_stream with
            | false, false -> Unary
