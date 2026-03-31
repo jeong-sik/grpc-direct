@@ -16,7 +16,7 @@
  (description "Core gRPC functionality: message framing, compression (gzip, zstd), status codes.
 Zero dependencies on runtime systems - works with Eio, Lwt, or Async.")
  (depends
-  (ocaml (>= 5.1))
+  (ocaml (>= 5.4))
   (dune (>= 3.13))
   (dune-build-info (>= 0.1))
   (decompress (>= 1.5.0))
@@ -31,7 +31,7 @@ Zero dependencies on runtime systems - works with Eio, Lwt, or Async.")
 Features: Health Check, Retry Policy, Prometheus Metrics, Server Reflection,
 Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (depends
-  (ocaml (>= 5.1))
+  (ocaml (>= 5.4))
   (dune (>= 3.13))
   (grpc-direct-core (= :version))
   (eio (>= 1.0))
@@ -50,7 +50,7 @@ Connection Pool, Load Balancer, Native TLS. Zero Lwt/Async dependencies.")
  (synopsis "Protoc plugin for grpc-direct")
  (description "Generate OCaml code from .proto files for grpc-direct")
  (depends
-  (ocaml (>= 5.1))
+  (ocaml (>= 5.4))
   (dune (>= 3.13))
   (ocaml-protoc-plugin (>= 6.0))
   (bisect_ppx (and :with-test (>= 2.8)))))
