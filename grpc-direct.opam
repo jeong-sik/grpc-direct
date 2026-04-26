@@ -13,16 +13,20 @@ homepage: "https://github.com/jeong-sik/grpc-direct"
 doc: "https://github.com/jeong-sik/grpc-direct"
 bug-reports: "https://github.com/jeong-sik/grpc-direct/issues"
 depends: [
-  "ocaml" {>= "5.1"}
-  "dune" {>= "3.13" & >= "3.13"}
+  "ocaml" {>= "5.2"}
+  "dune" {>= "3.17" & >= "3.17"}
   "grpc-direct-core" {= version}
+  "cstruct" {>= "6.0"}
+  "bigstringaf" {>= "0.9.0"}
   "eio" {>= "1.0"}
   "eio_main" {>= "1.0"}
+  "gluten" {>= "0.4"}
   "h2-eio" {>= "0.13.0"}
   "uri"
+  "x509" {>= "0.16"}
   "digestif" {>= "1.1.4"}
   "ca-certs"
-  "tls-eio" {>= "1.0"}
+  "tls-eio" {>= "2.0"}
   "mirage-crypto-rng-eio" {>= "1.0"}
   "mcp_protocol" {>= "1.0.0"}
   "bisect_ppx" {with-test & >= "2.8"}

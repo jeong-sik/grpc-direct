@@ -4,7 +4,17 @@
 
 (executable
  (name bench_client)
- (libraries grpc_eio grpc_core h2 eio eio_main mtime mtime.clock.os unix))
+ (libraries
+  grpc_eio
+  grpc_core
+  h2
+  eio
+  eio.core
+  eio.unix
+  eio_main
+  mtime
+  mtime.clock.os
+  unix))
 
 (executable
  (name bench_echo_real)
@@ -14,6 +24,8 @@
   h2
   h2-eio
   eio
+  eio.core
+  eio.unix
   eio_main
   mtime
   mtime.clock.os
@@ -22,27 +34,46 @@
 
 (executable
  (name bench_h2_raw)
- (libraries grpc_eio grpc_core h2 eio eio_main mtime mtime.clock.os unix))
+ (libraries
+  grpc_eio
+  grpc_core
+  h2
+  eio
+  eio.core
+  eio.unix
+  eio_main
+  mtime
+  mtime.clock.os
+  unix))
 
 (executable
  (name bench_server)
- (libraries grpc_eio grpc_core h2 h2-eio eio eio_main bigstringaf))
+ (libraries
+  grpc_eio
+  grpc_core
+  h2
+  h2-eio
+  eio
+  eio.core
+  eio.unix
+  eio_main
+  bigstringaf))
 
 (executable
  (name bench_server_lite)
- (libraries grpc_eio eio eio_main))
+ (libraries grpc_eio eio eio.core eio.unix eio_main))
 
 (executable
  (name h2spec_server)
- (libraries h2_lite eio eio_main))
+ (libraries h2_lite cstruct eio eio.core eio.unix eio_main))
 
 (executable
  (name slow_reader_client)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio.unix eio_main))
 
 (executable
  (name connection_churn_client)
- (libraries grpc_eio grpc_core eio eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio.unix eio_main))
 
 (executable
  (name interop_streaming_server)
@@ -50,6 +81,8 @@
   grpc_eio
   grpc_core
   eio
+  eio.core
+  eio.unix
   eio_main
   mtime
   mtime.clock.os
@@ -62,6 +95,8 @@
   grpc_eio
   grpc_core
   eio
+  eio.core
+  eio.unix
   eio_main
   mtime
   mtime.clock.os
@@ -71,11 +106,11 @@
 ; These files need to be created
 ; (executable
 ;  (name bench_client_real)
-;  (libraries grpc_eio grpc_core h2 eio eio_main mtime mtime.clock.os unix))
+;  (libraries grpc_eio grpc_core h2 eio eio.core eio.unix eio_main mtime mtime.clock.os unix))
 ;
 ; (executable
 ;  (name test_single)
-;  (libraries grpc_eio grpc_core eio eio_main))
+;  (libraries grpc_eio grpc_core eio eio.core eio.unix eio_main))
 ;
 ; (executable
 ;  (name test_100)

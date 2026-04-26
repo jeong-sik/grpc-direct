@@ -1,7 +1,7 @@
 (executable
  (name production_server)
- (libraries grpc_eio grpc_core eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio.unix eio_main))
 
 (executable
  (name production_client)
- (libraries grpc_eio grpc_core eio_main))
+ (libraries grpc_eio grpc_core eio eio.core eio.unix eio_main))
