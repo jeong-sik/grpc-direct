@@ -143,14 +143,56 @@ let decode_request (bytes : string) : string =
       let wire_type = tag land 0x7 in
       if field_num = 1 && wire_type = 2
       then (
-        (* Length-delimited string *)
-        let str_len = Char.code bytes.[!pos] in
-        incr pos;
-        service := String.sub bytes !pos str_len;
-        pos := !pos + str_len)
-      else
-        (* Skip unknown fields *)
-        pos := len
+        (* Length-delimited string - decode varint for length *)
+        let str_len = ref 0 in
+        let shift = ref 0 in
+        while
+          !pos < len
+          &&
+          let byte = Char.code bytes.[!pos] in
+          incr pos;
+          str_len := !str_len lor ((byte land 0x7f) lsl !shift);
+          shift := !shift + 7;
+          byte >= 0x80
+        do
+          ()
+        done;
+        service := String.sub bytes !pos !str_len;
+        pos := !pos + !str_len)
+      else (
+        (* Skip unknown fields based on wire type *)
+        match wire_type with
+        | 0 ->
+          (* varint: skip until MSB clear *)
+          while !pos < len && Char.code bytes.[!pos] >= 0x80 do
+            incr pos
+          done;
+          if !pos < len then incr pos
+        | 1 ->
+          (* 64-bit fixed *)
+          pos := !pos + 8
+        | 2 ->
+          (* length-delimited: skip varint + payload *)
+          let skip_len = ref 0 in
+          let skip_shift = ref 0 in
+          while
+            !pos < len
+            &&
+            let byte = Char.code bytes.[!pos] in
+            incr pos;
+            skip_len := !skip_len lor ((byte land 0x7f) lsl !skip_shift);
+            skip_shift := !skip_shift + 7;
+            byte >= 0x80
+          do
+            ()
+          done;
+          pos := !pos + !skip_len
+        | 5 ->
+          (* 32-bit fixed *)
+          pos := !pos + 4
+        | _ ->
+          (* Unknown wire type - skip to end *)
+          pos := len)
     done;
     !service)
 ;;
@@ -188,12 +230,16 @@ let to_service (t : t) : Service.t =
   |> Service.add_server_streaming "Watch" (fun request_bytes ->
     let service = decode_request request_bytes in
     let stream = watch t ~service in
-    (* Map status to encoded response *)
     let response_stream = Grpc_stream.create 8 in
-    (* Note: In real implementation, need fiber to pump from one stream to another *)
-    (* For now, send initial status and return *)
-    let initial_status = Grpc_stream.take stream in
-    Grpc_stream.add response_stream (encode_response initial_status);
+    (* Pump all status updates (including initial) from watch to response *)
+    Eio.Fiber.fork (fun () ->
+      try
+        while true do
+          let status = Grpc_stream.take stream in
+          Grpc_stream.add response_stream (encode_response status)
+        done
+      with
+      | End_of_file -> Grpc_stream.close response_stream);
     response_stream)
 ;;
 
