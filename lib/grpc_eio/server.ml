@@ -495,7 +495,7 @@ let serve ~sw ~env (server : t) : unit =
          Some config
        | Error msg -> failwith ("TLS configuration error: " ^ msg))
     | None ->
-      Log.warn "ℹ️  Running without TLS (plaintext h2c)";
+      Log.info "ℹ️  Running without TLS (plaintext h2c)";
       None
   in
   Log.info "gRPC server on %s:%d" server.config.host server.config.port;
