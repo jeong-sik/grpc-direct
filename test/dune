@@ -20,7 +20,7 @@
 
 (test
  (name test_tls)
- (libraries grpc_eio tls mirage-crypto-rng-eio))
+ (libraries grpc_eio tls))
 
 (test
  (name test_grpc_web)
