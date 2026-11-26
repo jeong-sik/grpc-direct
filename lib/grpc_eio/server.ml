@@ -488,7 +488,7 @@ let serve ~sw ~env (server : t) : unit =
   let tls_server_config =
     match server.config.tls with
     | Some tls ->
-      (* RNG initialization should be done at app level with Mirage_crypto_rng_unix.use_default () *)
+      (* The application seeds the RNG: Mirage_crypto_rng_unix.use_default () *)
       (match Tls_config.load tls with
        | Ok config ->
          Log.info "🔒 TLS enabled (ALPN: h2)";
